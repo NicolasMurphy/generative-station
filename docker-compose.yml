@@ -4,6 +4,10 @@ services:
     container_name: gs-icecast
     ports:
       - "8000:8000"
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
     restart: unless-stopped
 
   station:
@@ -16,7 +20,7 @@ services:
       ICECAST_PORT: "8000"
       ICECAST_MOUNT: /stream
       ICECAST_SOURCE_USER: source
-      ICECAST_SOURCE_PASSWORD: hackme
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
       JACK_SAMPLE_RATE: "48000"
       JACK_PERIOD: "1024"
     shm_size: "512m"
