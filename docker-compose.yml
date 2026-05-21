@@ -21,3 +21,5 @@ services:
       JACK_PERIOD: "1024"
     shm_size: "512m"
     restart: unless-stopped
+    volumes:
+      - ./station/piece.scd:/app/piece.scd:ro
