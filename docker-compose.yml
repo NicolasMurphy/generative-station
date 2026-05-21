@@ -1,0 +1,23 @@
+services:
+  icecast:
+    build: ./icecast
+    container_name: gs-icecast
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  station:
+    build: ./station
+    container_name: gs-station
+    depends_on:
+      - icecast
+    environment:
+      ICECAST_HOST: icecast
+      ICECAST_PORT: "8000"
+      ICECAST_MOUNT: /stream
+      ICECAST_SOURCE_USER: source
+      ICECAST_SOURCE_PASSWORD: hackme
+      JACK_SAMPLE_RATE: "48000"
+      JACK_PERIOD: "1024"
+    shm_size: "512m"
+    restart: unless-stopped
