@@ -21,16 +21,22 @@ s.waitForBoot({
     }).add;
 
     SynthDef(\fx, { |in, out = 0|
-        var dry = In.ar(in, 2);
+        var dry       = In.ar(in, 2);
         var delayTime = LFNoise2.kr(0.1).range(0.15, 0.55);
-        var delayed = CombC.ar(dry, 1.0, delayTime, LFNoise2.kr(0.05).range(2.0, 6.0));
-        var mixed = dry + (delayed * 0.45);
+        var baseFb    = LFNoise2.kr(0.08).range(0.30, 0.50);
+        var jumpTrig  = Dust.kr(0.025);
+        var jumpEnv   = EnvGen.kr(Env([0, 0.45, 0], [0.4, 2.0], \sine), jumpTrig);
+        var fbAmt     = (baseFb + jumpEnv).clip(0, 0.95);
+        var fb        = LocalIn.ar(2);
+        var delayed   = DelayC.ar(dry + (fb * fbAmt), 1.0, delayTime);
+        var mixed     = dry + (delayed * 0.45);
         var wet = FreeVerb.ar(
             mixed,
             mix:  LFNoise2.kr(0.07).range(0.35, 0.7),
             room: LFNoise2.kr(0.05).range(0.6, 0.9),
             damp: LFNoise2.kr(0.05).range(0.2, 0.6)
         );
+        LocalOut.ar(LeakDC.ar(delayed).tanh);
         Out.ar(out, wet);
     }).add;
 
@@ -41,7 +47,12 @@ s.waitForBoot({
     Synth(\fx, [\in, fxBus, \out, 0], fxGroup);
 
     Tdef(\spawner, {
+        var start = thisThread.seconds;
         loop {
+            var elapsed = thisThread.seconds - start;
+            var density = sin(elapsed * 2pi / 240) * 0.5 + 0.5;
+            var waitMin = 0.3 + ((1 - density) * 2.5);
+            var waitMax = 0.8 + ((1 - density) * 6.0);
             Synth(\swellSine, [
                 \freq, exprand(200.0, 1000.0),
                 \amp,  rrand(0.02, 0.05),
@@ -49,7 +60,7 @@ s.waitForBoot({
                 \rel,  rrand(3.0, 8.0),
                 \out,  fxBus
             ], voiceGroup);
-            rrand(0.15, 0.6).wait;
+            rrand(waitMin, waitMax).wait;
         }
     }).play;
 
