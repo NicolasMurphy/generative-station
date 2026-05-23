@@ -1,3 +1,8 @@
 station.berserkbrah.com {
-    reverse_proxy icecast:8000
+    handle /webhook {
+        reverse_proxy picker:9000
+    }
+    handle {
+        reverse_proxy icecast:8000
+    }
 }

@@ -48,6 +48,19 @@ services:
       - caddy_config:/config
     depends_on:
       - icecast
+      - picker
+    restart: unless-stopped
+
+  picker:
+    build: ./picker
+    container_name: gs-picker
+    environment:
+      STATION_WEBHOOK_SECRET: ${STATION_WEBHOOK_SECRET}
+      SC_HOST: station
+      SC_PORT: "57120"
+      DEBOUNCE_SECONDS: "30"
+    depends_on:
+      - station
     restart: unless-stopped
 
 volumes:
