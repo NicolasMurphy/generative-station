@@ -34,3 +34,22 @@ services:
       - ./station/clicks.scd:/app/clicks.scd:ro
       - ./station/sweeps.scd:/app/sweeps.scd:ro
       - ./station/bass.scd:/app/bass.scd:ro
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: gs-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - icecast
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
