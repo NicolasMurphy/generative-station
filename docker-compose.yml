@@ -31,3 +31,4 @@ services:
       - ./station/piece.scd:/app/piece.scd:ro
       - ./station/swells.scd:/app/swells.scd:ro
       - ./station/plucks.scd:/app/plucks.scd:ro
+      - ./station/clicks.scd:/app/clicks.scd:ro

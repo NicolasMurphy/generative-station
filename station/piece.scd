@@ -14,9 +14,11 @@ s.waitForBoot({
 
     (here +/+ "swells.scd").load;
     (here +/+ "plucks.scd").load;
+    (here +/+ "clicks.scd").load;
 
     ~setupSwells.();
     ~setupPlucks.();
+    ~setupClicks.();
 
     "[piece] all elements running".postln;
 });
