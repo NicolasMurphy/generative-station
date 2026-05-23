@@ -7,8 +7,8 @@
             doneAction: 2
         );
 
-        var octaveAmpEnv  = EnvGen.kr(Env([0.7, 0.25], [dur], \sine));
-        var tritaveAmpEnv = EnvGen.kr(Env([0.5, 0.12], [dur], \sine));
+        var octaveAmpEnv  = EnvGen.kr(Env([0.7, 0.08], [dur * 0.15], \sine));
+        var tritaveAmpEnv = EnvGen.kr(Env([0.5, 0.03], [dur * 0.12], \sine));
 
         var root    = SinOsc.ar(freqEnv);
         var octave  = SinOsc.ar(freqEnv * 2) * octaveAmpEnv;
