@@ -16,11 +16,13 @@ s.waitForBoot({
     (here +/+ "plucks.scd").load;
     (here +/+ "clicks.scd").load;
     (here +/+ "sweeps.scd").load;
+    (here +/+ "bass.scd").load;
 
     ~setupSwells.();
     ~setupPlucks.();
     ~setupClicks.();
     ~setupSweeps.();
+    ~setupBass.();
 
     "[piece] all elements running".postln;
 });

@@ -33,3 +33,4 @@ services:
       - ./station/plucks.scd:/app/plucks.scd:ro
       - ./station/clicks.scd:/app/clicks.scd:ro
       - ./station/sweeps.scd:/app/sweeps.scd:ro
+      - ./station/bass.scd:/app/bass.scd:ro
