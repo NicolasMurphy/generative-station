@@ -32,3 +32,4 @@ services:
       - ./station/swells.scd:/app/swells.scd:ro
       - ./station/plucks.scd:/app/plucks.scd:ro
       - ./station/clicks.scd:/app/clicks.scd:ro
+      - ./station/sweeps.scd:/app/sweeps.scd:ro
