@@ -9,6 +9,8 @@ services:
       ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD}
       ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
     restart: unless-stopped
+    volumes:
+      - ./web:/usr/share/icecast2/web/custom:ro
 
   station:
     build: ./station
