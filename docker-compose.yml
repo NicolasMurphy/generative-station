@@ -29,3 +29,5 @@ services:
     restart: unless-stopped
     volumes:
       - ./station/piece.scd:/app/piece.scd:ro
+      - ./station/swells.scd:/app/swells.scd:ro
+      - ./station/plucks.scd:/app/plucks.scd:ro
