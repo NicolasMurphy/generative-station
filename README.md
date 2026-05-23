@@ -6,4 +6,4 @@ Continuous generative audio stream. SuperCollider piece runs forever inside a co
 docker compose up
 ```
 
-Listen at `http://localhost:8000/stream` (or open `web/index.html`).
+Listen at `http://localhost:8000/stream`.
