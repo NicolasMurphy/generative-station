@@ -25,13 +25,35 @@
 
     Tdef(\pluckSpawner, {
         loop {
-            Synth(\pluck, [
-                \freq, exprand(1000.0, 3000.0),
-                \amp,  rrand(0.012, 0.03),
-                \atk,  rrand(0.003, 0.01),
-                \rel,  rrand(0.15, 0.4),
-                \out,  pluckFxBus
-            ], ~voiceGroup);
+            if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
+                // Chord mode: spawn one pluck per compound peak, all at once.
+                // Random per-spawn transpose preserves intervallic shape while
+                // varying pitch height each cycle. Amp scaled by 1/sqrt(N) so
+                // dense spectra don't blow out vs sparse ones.
+                var transpose = rrand(1.0, 2.0);
+                var n = ~currentCompound.freqs.size;
+                var ampScale = rrand(0.012, 0.03) / n.sqrt;
+                var atk = rrand(0.003, 0.01);
+                var rel = rrand(0.15, 0.4);
+                ~currentCompound.freqs.do { |freq, i|
+                    Synth(\pluck, [
+                        \freq, freq * transpose,
+                        \amp,  ampScale * ~currentCompound.amps[i],
+                        \atk,  atk,
+                        \rel,  rel,
+                        \out,  pluckFxBus
+                    ], ~voiceGroup);
+                };
+            } {
+                // No compound loaded — original random pluck behavior.
+                Synth(\pluck, [
+                    \freq, exprand(1000.0, 3000.0),
+                    \amp,  rrand(0.012, 0.03),
+                    \atk,  rrand(0.003, 0.01),
+                    \rel,  rrand(0.15, 0.4),
+                    \out,  pluckFxBus
+                ], ~voiceGroup);
+            };
             rrand(10.0, 30.0).wait;
         }
     }).play;
