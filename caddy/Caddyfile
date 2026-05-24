@@ -4,7 +4,6 @@ station.berserkbrah.com {
         reverse_proxy picker:9000
     }
     handle {
-        header Access-Control-Allow-Origin "*"
         reverse_proxy icecast:8000
     }
 }
