@@ -16,5 +16,23 @@
 <body>
 <h1>generative-station</h1>
 <audio controls src="/stream"></audio>
+<p id="compound">awaiting compound</p>
+<script>
+  async function updateCompound() {
+    try {
+      const r = await fetch('/current', { cache: 'no-store' });
+      if (r.status === 204) {
+        document.getElementById('compound').textContent = 'awaiting compound';
+        return;
+      }
+      if (!r.ok) return;
+      const d = await r.json();
+      document.getElementById('compound').textContent =
+        d.name + ' — ' + d.n_peaks + ' peaks · ' + d.algorithm;
+    } catch (e) {}
+  }
+  updateCompound();
+  setInterval(updateCompound, 10000);
+</script>
 </body>
 </html>

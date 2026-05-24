@@ -22,6 +22,7 @@ app = Flask(__name__)
 osc_client = SimpleUDPClient(SC_HOST, SC_PORT)
 
 _last_event_time = 0.0
+_current_compound = None  # latest accepted event, exposed via GET /current
 _lock = Lock()
 
 
@@ -78,16 +79,23 @@ def webhook():
         app.logger.warning("rejected: %s", err)
         return jsonify({"error": err}), 400
 
-    global _last_event_time
+    global _last_event_time, _current_compound
     now = time.time()
+    freqs = data["frequencies"]
+    amps = data["amplitudes"]
     with _lock:
         if now - _last_event_time < DEBOUNCE_SECONDS:
             app.logger.info("debounced: %s", data["compound"])
             return jsonify({"status": "debounced"}), 200
         _last_event_time = now
+        _current_compound = {
+            "name": data["compound"],
+            "accession": data["accession"],
+            "algorithm": data["algorithm"],
+            "parameters": data.get("parameters", {}),
+            "n_peaks": len(freqs),
+        }
 
-    freqs = data["frequencies"]
-    amps = data["amplitudes"]
     osc_args = [
         data["compound"],
         data["accession"],
@@ -99,6 +107,15 @@ def webhook():
     osc_client.send_message("/compound", osc_args)
     app.logger.info("accepted: %s (%d peaks)", data["compound"], len(freqs))
     return jsonify({"status": "ok"}), 200
+
+
+@app.get("/current")
+def current():
+    with _lock:
+        snapshot = _current_compound
+    if snapshot is None:
+        return ("", 204)
+    return jsonify(snapshot), 200
 
 
 @app.get("/health")

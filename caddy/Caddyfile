@@ -1,5 +1,6 @@
 station.berserkbrah.com {
-    handle /webhook {
+    @picker path /webhook /current
+    handle @picker {
         reverse_proxy picker:9000
     }
     handle {
