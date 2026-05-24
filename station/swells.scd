@@ -41,13 +41,34 @@
             var density = sin(elapsed * 2pi / 240) * 0.5 + 0.5;
             var waitMin = 0.3 + ((1 - density) * 2.5);
             var waitMax = 0.8 + ((1 - density) * 6.0);
-            Synth(\swellSine, [
-                \freq, exprand(200.0, 1000.0),
-                \amp,  rrand(0.02, 0.05),
-                \atk,  rrand(2.0, 6.0),
-                \rel,  rrand(3.0, 8.0),
-                \out,  fxBus
-            ], ~voiceGroup);
+
+            if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
+                // Chord mode: one swell per compound peak, all sharing the same
+                // long envelope. Transpose range biases lower than plucks since
+                // swells naturally sit in 200-1000 Hz territory.
+                var transpose = rrand(0.5, 1.5);
+                var ampScale = rrand(0.02, 0.05);
+                var atk = rrand(2.0, 6.0);
+                var rel = rrand(3.0, 8.0);
+                ~currentCompound.freqs.do { |freq, i|
+                    Synth(\swellSine, [
+                        \freq, freq * transpose,
+                        \amp,  ampScale * ~currentCompound.amps[i],
+                        \atk,  atk,
+                        \rel,  rel,
+                        \out,  fxBus
+                    ], ~voiceGroup);
+                };
+            } {
+                // No compound loaded — original random swell behavior.
+                Synth(\swellSine, [
+                    \freq, exprand(200.0, 1000.0),
+                    \amp,  rrand(0.02, 0.05),
+                    \atk,  rrand(2.0, 6.0),
+                    \rel,  rrand(3.0, 8.0),
+                    \out,  fxBus
+                ], ~voiceGroup);
+            };
             rrand(waitMin, waitMax).wait;
         }
     }).play;
