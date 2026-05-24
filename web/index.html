@@ -5,15 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>generative-station</title>
 <style>
+  html { background: #111; }
   body {
-    background: #111;
+    background: transparent;
     color: #ddd;
     font-family: monospace;
     padding: 1.5rem;
+    margin: 0;
+  }
+  #viz {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 1.8s ease;
+    pointer-events: none;
+    display: block;
+  }
+  h1, audio, #compound {
+    position: relative;
+    z-index: 1;
   }
 </style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.160.0"
+  }
+}
+</script>
 </head>
 <body>
+<canvas id="viz"></canvas>
 <h1>generative-station</h1>
 <audio controls src="/stream"></audio>
 <p id="compound">awaiting compound</p>
@@ -33,6 +57,220 @@
   }
   updateCompound();
   setInterval(updateCompound, 10000);
+</script>
+<script type="module">
+  const audio = document.querySelector('audio');
+  const canvas = document.getElementById('viz');
+  let started = false;
+
+  audio.addEventListener('play', async () => {
+    if (started) return;
+    started = true;
+
+    const THREE = await import('three');
+
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioCtx();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    const source = audioCtx.createMediaElementSource(audio);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+    analyser.smoothingTimeConstant = 0.7;
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      50,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100,
+    );
+    camera.position.z = 4;
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+
+    const ringCount = 8;
+    const barsPerRing = 24;
+    const ringRadius = 1.4;
+    const ringDepth = 0.35;
+    const maxBarHeight = 1.3;
+    const baseScale = 0.95;
+    const tubeRadius = 0.3;
+
+    const thetaCos = new Float32Array(barsPerRing);
+    const thetaSin = new Float32Array(barsPerRing);
+    for (let i = 0; i < barsPerRing; i++) {
+      const angle = (i / barsPerRing) * Math.PI * 2;
+      thetaCos[i] = Math.cos(angle);
+      thetaSin[i] = Math.sin(angle);
+    }
+
+    const group = new THREE.Group();
+    group.scale.setScalar(baseScale);
+    scene.add(group);
+
+    const rings = [];
+    const ringGroups = [];
+    const ringValues = [];
+
+    const upY = new THREE.Vector3(0, 1, 0);
+    const outward = new THREE.Vector3();
+
+    for (let r = 0; r < ringCount; r++) {
+      const ringGroup = new THREE.Group();
+      ringGroup.position.z = -r * ringDepth;
+      group.add(ringGroup);
+      ringGroups.push(ringGroup);
+
+      const ringBars = [];
+      const fade = 1 - (r / ringCount) * 0.65;
+
+      for (let i = 0; i < barsPerRing; i++) {
+        const t = i / (barsPerRing - 1);
+        const color = new THREE.Color();
+        if (t < 0.5) color.setRGB(1 - t * 2, t * 2, 0);
+        else color.setRGB(0, 1 - (t - 0.5) * 2, (t - 0.5) * 2);
+        const geom = new THREE.BoxGeometry(0.07, 1, 0.07);
+        geom.translate(0, 0.5, 0);
+        const bar = new THREE.Mesh(
+          geom,
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.5 * fade,
+          }),
+        );
+
+        bar.scale.y = 0.001;
+        ringGroup.add(bar);
+        ringBars.push(bar);
+      }
+      rings.push(ringBars);
+      ringValues.push(new Float32Array(barsPerRing));
+    }
+
+    const freqData = new Uint8Array(analyser.frequencyBinCount);
+    const minBin = 2;
+    const maxBin = Math.min(freqData.length, 850);
+    const linearCount = 10;
+    const linearEnd = minBin + linearCount;
+    const barBinStart = new Int32Array(barsPerRing + 1);
+    for (let i = 0; i <= linearCount; i++) {
+      barBinStart[i] = minBin + i;
+    }
+    const logMin = Math.log(linearEnd);
+    const logMax = Math.log(maxBin);
+    for (let i = linearCount + 1; i <= barsPerRing; i++) {
+      const t = (i - linearCount) / (barsPerRing - linearCount);
+      const ideal = Math.floor(Math.exp(logMin + (logMax - logMin) * t));
+      barBinStart[i] = Math.max(barBinStart[i - 1] + 1, ideal);
+    }
+
+    const targetValues = new Float32Array(barsPerRing);
+
+    const fadeScene = new THREE.Scene();
+    const fadeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const fadeQuad = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.07,
+        depthWrite: false,
+        depthTest: false,
+      }),
+    );
+    fadeScene.add(fadeQuad);
+    renderer.autoClear = false;
+
+    let shiftAccum = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      analyser.getByteFrequencyData(freqData);
+
+      for (let i = 0; i < barsPerRing; i++) {
+        const b0 = barBinStart[i];
+        const b1 = barBinStart[i + 1];
+        let sum = 0;
+        for (let j = b0; j < b1; j++) sum += freqData[j];
+        const avg = sum / (b1 - b0) / 255;
+        targetValues[i] = Math.log(avg + 1) / Math.log(2);
+      }
+
+      const ring0 = ringValues[0];
+      for (let i = 0; i < barsPerRing; i++) {
+        if (targetValues[i] > ring0[i]) ring0[i] = targetValues[i];
+        else ring0[i] += (targetValues[i] - ring0[i]) * 0.1;
+      }
+
+      shiftAccum++;
+      if (shiftAccum >= 5) {
+        shiftAccum = 0;
+        for (let r = ringCount - 1; r > 0; r--) {
+          const dst = ringValues[r];
+          const src = ringValues[r - 1];
+          for (let i = 0; i < barsPerRing; i++) dst[i] = src[i];
+        }
+      }
+
+      const tNow = performance.now();
+
+      for (let r = 0; r < ringCount; r++) {
+        const vals = ringValues[r];
+        const ringBars = rings[r];
+        const phiDir = r % 2 === 0 ? 1 : -1;
+        const phi = tNow * (0.00035 + r * 0.00006) * phiDir;
+        const cosPh = Math.cos(phi);
+        const sinPh = Math.sin(phi);
+        const Rcp = ringRadius + tubeRadius * cosPh;
+        const zr = tubeRadius * sinPh;
+        for (let i = 0; i < barsPerRing; i++) {
+          const cosTh = thetaCos[i];
+          const sinTh = thetaSin[i];
+          ringBars[i].position.set(Rcp * cosTh, Rcp * sinTh, zr);
+          outward.set(cosPh * cosTh, cosPh * sinTh, sinPh);
+          ringBars[i].quaternion.setFromUnitVectors(upY, outward);
+          ringBars[i].scale.y = Math.max(0.001, vals[i] * maxBarHeight);
+        }
+      }
+
+      for (let r = 0; r < ringCount; r++) {
+        const dirSign = r % 2 === 0 ? 1 : -1;
+        ringGroups[r].rotation.z = tNow * (0.00006 + r * 0.000045) * dirSign;
+      }
+
+      const orbitAngle = tNow * 0.00009;
+      const elevation = Math.sin(tNow * 0.000055) * 0.65;
+      const orbitRadius = 5;
+      const tunnelCenterZ = -((ringCount - 1) * ringDepth) / 2;
+      const cosEl = Math.cos(elevation);
+      camera.position.x = Math.sin(orbitAngle) * orbitRadius * cosEl;
+      camera.position.z = tunnelCenterZ + Math.cos(orbitAngle) * orbitRadius * cosEl;
+      camera.position.y = Math.sin(elevation) * orbitRadius;
+      camera.lookAt(0, 0, tunnelCenterZ);
+
+      renderer.clearDepth();
+      renderer.render(fadeScene, fadeCamera);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight, false);
+    });
+
+    requestAnimationFrame(() => { canvas.style.opacity = '1'; });
+  });
 </script>
 </body>
 </html>
