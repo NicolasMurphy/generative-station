@@ -28,11 +28,12 @@
             if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
                 // Chord mode: spawn one pluck per compound peak, all at once.
                 // Random per-spawn transpose preserves intervallic shape while
-                // varying pitch height each cycle. Amp scaled by 1/sqrt(N) so
-                // dense spectra don't blow out vs sparse ones.
+                // varying pitch height each cycle. Each pluck's amp is the base
+                // amp scaled by the compound's normalized amplitude — most
+                // spectra have a few prominent peaks plus a noise floor, so
+                // total energy stays reasonable without explicit N-normalization.
                 var transpose = rrand(1.0, 2.0);
-                var n = ~currentCompound.freqs.size;
-                var ampScale = rrand(0.012, 0.03) / n.sqrt;
+                var ampScale = rrand(0.012, 0.03);
                 var atk = rrand(0.003, 0.01);
                 var rel = rrand(0.15, 0.4);
                 ~currentCompound.freqs.do { |freq, i|
