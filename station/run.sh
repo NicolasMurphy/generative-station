@@ -48,9 +48,9 @@ done
 echo "[station] starting ffmpeg encoder..."
 ffmpeg -hide_banner -loglevel info \
     -f jack -i SC-Encoder -channels 2 \
-    -c:a libopus -b:a 96k -ar 48000 \
-    -content_type application/ogg \
-    -f ogg "icecast://${ICECAST_SOURCE_USER}:${ICECAST_SOURCE_PASSWORD}@${ICECAST_HOST}:${ICECAST_PORT}${ICECAST_MOUNT}" &
+    -c:a aac -b:a 128k -ar 48000 \
+    -content_type audio/aac \
+    -f adts "icecast://${ICECAST_SOURCE_USER}:${ICECAST_SOURCE_PASSWORD}@${ICECAST_HOST}:${ICECAST_PORT}${ICECAST_MOUNT}" &
 FFMPEG_PID=$!
 
 echo "[station] waiting for SC-Encoder JACK ports..."

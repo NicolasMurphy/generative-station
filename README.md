@@ -1,6 +1,6 @@
 # generative-station
 
-Continuous generative audio stream. A SuperCollider piece runs forever inside a container, ffmpeg encodes Opus, Icecast serves it.
+Continuous generative audio stream. A SuperCollider piece runs forever inside a container, ffmpeg encodes AAC, Icecast serves it.
 
 ---
 
@@ -22,7 +22,7 @@ When a compound is generated on [mass-spectrum-to-audio-converter](https://githu
 
 - **Synthesis**: SuperCollider (scsynth + sclang)
 - **Sidecar**: Python, Flask, python-osc
-- **Streaming**: ffmpeg → Icecast (Opus)
+- **Streaming**: ffmpeg → Icecast (AAC)
 - **Reverse proxy**: Caddy (TLS, HTTP/3)
 - **Deployment**: Docker hosted on Hetzner VPS
 

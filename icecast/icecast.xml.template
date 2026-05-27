@@ -32,8 +32,8 @@
         <public>0</public>
         <stream-name>generative-station</stream-name>
         <stream-description>Continuous generative audio from SuperCollider</stream-description>
-        <bitrate>96</bitrate>
-        <type>application/ogg</type>
+        <bitrate>128</bitrate>
+        <type>audio/aac</type>
     </mount>
 
     <fileserve>1</fileserve>
