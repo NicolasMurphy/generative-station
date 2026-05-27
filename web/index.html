@@ -55,6 +55,13 @@
   }
   updateCompound();
   setInterval(updateCompound, 10000);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'F11') return;
+    e.preventDefault();
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
 </script>
 <script type="module">
   const audio = document.querySelector('audio');
