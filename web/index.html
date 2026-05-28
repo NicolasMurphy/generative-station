@@ -64,25 +64,35 @@
   });
 </script>
 <script type="module">
+  import * as THREE from 'three';
+
   const audio = document.querySelector('audio');
   const canvas = document.getElementById('viz');
   let started = false;
+  let audioCtx = null;
+  let analyser = null;
 
-  audio.addEventListener('play', async () => {
+  function ensureAudioGraph() {
+    if (!audioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaElementSource(audio);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0.7;
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  // iOS: create AudioContext + MediaElementSource in a gesture handler before playback starts, or the analyser stays silent.
+  window.addEventListener('pointerdown', ensureAudioGraph, { once: true, capture: true });
+
+  audio.addEventListener('play', () => {
     if (started) return;
     started = true;
-
-    const THREE = await import('three');
-
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioCtx();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    const source = audioCtx.createMediaElementSource(audio);
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 4096;
-    analyser.smoothingTimeConstant = 0.7;
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
+    ensureAudioGraph();
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
