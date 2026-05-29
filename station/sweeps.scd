@@ -39,7 +39,7 @@
             var freqEnd   = if(sweepUp) { freqHigh } { freqLow };
 
             Synth(\sweep, [
-                \dur,       rrand(2.0, 12.0),
+                \dur,       exprand(0.4, 12.0),
                 \amp,       rrand(0.05, 0.10),
                 \freqStart, freqStart,
                 \freqEnd,   freqEnd,
