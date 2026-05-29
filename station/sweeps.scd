@@ -14,15 +14,17 @@
         Out.ar(out, sig ! 2);
     }).add;
 
-    SynthDef(\sweepFx, { |in, out = 0, fbAmt = 0.95|
-        var dry       = In.ar(in, 2);
-        var delayTime = LFNoise2.kr(0.05).range(0.20, 0.60);
-        var fb        = LocalIn.ar(2);
-        var delayed   = DelayC.ar(dry + (fb * fbAmt), 1.0, delayTime);
-        var wet       = dry + (delayed * 0.7);
-        var verbed    = FreeVerb.ar(wet, mix: 0.3, room: 0.8, damp: 0.5);
+    SynthDef(\sweepFx, { |in, out = 0, fbAmt = 0.95, preDelay = 0.06|
+        var dry        = In.ar(in, 2);
+        var delayTime  = LFNoise2.kr(0.05).range(0.20, 0.60);
+        var fb         = LocalIn.ar(2);
+        var delayed    = DelayC.ar(dry + (fb * fbAmt), 1.0, delayTime);
+        var wet        = dry + (delayed * 0.7);
+        var verbWet    = FreeVerb.ar(wet, mix: 1.0, room: 0.8, damp: 0.5);
+        var preDelayed = DelayN.ar(verbWet, 0.2, preDelay);
+        var verbed     = (wet * 0.7) + (preDelayed * 0.3);
         LocalOut.ar(LeakDC.ar(delayed).tanh);
-        Out.ar(out, verbed);
+        Out.ar(out, verbed * (1 - (In.kr(~sidechainBus, 1) * 0.3)));
     }).add;
 
     s.sync;

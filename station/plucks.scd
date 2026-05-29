@@ -7,16 +7,18 @@
         Out.ar(out, sig ! 2);
     }).add;
 
-    SynthDef(\pluckFx, { |in, out = 0|
-        var dry       = In.ar(in, 2);
-        var delayTime = LFNoise2.kr(0.05).range(0.05, 0.12);
-        var fbAmt     = 0.93;
-        var fb        = LocalIn.ar(2);
-        var delayed   = DelayC.ar(dry + (fb * fbAmt), 0.3, delayTime);
-        var wet       = dry + (delayed * 0.6);
-        var verbed    = FreeVerb.ar(wet, mix: 0.3, room: 0.7, damp: 0.5);
+    SynthDef(\pluckFx, { |in, out = 0, preDelay = 0.06|
+        var dry        = In.ar(in, 2);
+        var delayTime  = LFNoise2.kr(0.05).range(0.05, 0.12);
+        var fbAmt      = 0.93;
+        var fb         = LocalIn.ar(2);
+        var delayed    = DelayC.ar(dry + (fb * fbAmt), 0.3, delayTime);
+        var wet        = dry + (delayed * 0.6);
+        var verbWet    = FreeVerb.ar(wet, mix: 1.0, room: 0.7, damp: 0.5);
+        var preDelayed = DelayN.ar(verbWet, 0.2, preDelay);
+        var verbed     = (wet * 0.7) + (preDelayed * 0.3);
         LocalOut.ar(LeakDC.ar(delayed).tanh);
-        Out.ar(out, verbed);
+        Out.ar(out, verbed * (1 - (In.kr(~sidechainBus, 1) * 0.2)));
     }).add;
 
     s.sync;

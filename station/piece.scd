@@ -12,6 +12,10 @@ s.waitForBoot({
     ~voiceGroup = Group.new;
     ~fxGroup    = Group.after(~voiceGroup);
 
+    // 1-channel control bus carrying the kick's ducking envelope (0 = no
+    // duck, 1 = full duck). Read by voices/FX to apply sidechain attenuation.
+    ~sidechainBus = Bus.control(s, 1);
+
     // Current compound, populated by /compound OSC messages from the picker
     // sidecar. Starts nil so voices fall back to their original random ranges.
     ~currentCompound = (
@@ -46,12 +50,14 @@ s.waitForBoot({
     (here +/+ "clicks.scd").load;
     (here +/+ "sweeps.scd").load;
     (here +/+ "bass.scd").load;
+    (here +/+ "kick.scd").load;
 
     ~setupSwells.();
     ~setupPlucks.();
     ~setupClicks.();
     ~setupSweeps.();
     ~setupBass.();
+    ~setupKick.();
 
     "[piece] all elements running".postln;
 });

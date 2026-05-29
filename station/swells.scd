@@ -10,7 +10,7 @@
         Out.ar(out, sig ! 2);
     }).add;
 
-    SynthDef(\swellFx, { |in, out = 0|
+    SynthDef(\swellFx, { |in, out = 0, preDelay = 0.08|
         var dry       = In.ar(in, 2);
         var delayTime = LFNoise2.kr(0.1).range(0.15, 0.55);
         var baseFb    = LFNoise2.kr(0.08).range(0.30, 0.50);
@@ -20,14 +20,17 @@
         var fb        = LocalIn.ar(2);
         var delayed   = DelayC.ar(dry + (fb * fbAmt), 1.0, delayTime);
         var mixed     = dry + (delayed * 0.45);
-        var wet = FreeVerb.ar(
+        var verbAmt   = LFNoise2.kr(0.07).range(0.35, 0.7);
+        var verbWet   = FreeVerb.ar(
             mixed,
-            mix:  LFNoise2.kr(0.07).range(0.35, 0.7),
+            mix:  1.0,
             room: LFNoise2.kr(0.05).range(0.6, 0.9),
             damp: LFNoise2.kr(0.05).range(0.2, 0.6)
         );
+        var preDelayed = DelayN.ar(verbWet, 0.2, preDelay);
+        var wet        = (mixed * (1 - verbAmt)) + (preDelayed * verbAmt);
         LocalOut.ar(LeakDC.ar(delayed).tanh);
-        Out.ar(out, wet);
+        Out.ar(out, wet * (1 - (In.kr(~sidechainBus, 1) * 0.45)));
     }).add;
 
     s.sync;

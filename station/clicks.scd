@@ -19,16 +19,18 @@
         Out.ar(out, panned * ampEnv * amp);
     }).add;
 
-    SynthDef(\clickFx, { |in, out = 0|
-        var dry       = In.ar(in, 2);
-        var delayTime = LFNoise2.kr(0.06).range(0.04, 0.09);
-        var fbAmt     = 0.88;
-        var fb        = LocalIn.ar(2);
-        var delayed   = DelayC.ar(dry + (fb * fbAmt), 0.3, delayTime);
-        var wet       = dry + (delayed * 0.7);
-        var verbed    = FreeVerb.ar(wet, mix: 0.25, room: 0.6, damp: 0.6);
+    SynthDef(\clickFx, { |in, out = 0, preDelay = 0.06|
+        var dry        = In.ar(in, 2);
+        var delayTime  = LFNoise2.kr(0.06).range(0.04, 0.09);
+        var fbAmt      = 0.88;
+        var fb         = LocalIn.ar(2);
+        var delayed    = DelayC.ar(dry + (fb * fbAmt), 0.3, delayTime);
+        var wet        = dry + (delayed * 0.7);
+        var verbWet    = FreeVerb.ar(wet, mix: 1.0, room: 0.6, damp: 0.6);
+        var preDelayed = DelayN.ar(verbWet, 0.2, preDelay);
+        var verbed     = (wet * 0.75) + (preDelayed * 0.25);
         LocalOut.ar(LeakDC.ar(delayed).tanh);
-        Out.ar(out, verbed);
+        Out.ar(out, verbed * (1 - (In.kr(~sidechainBus, 1) * 0.13)));
     }).add;
 
     s.sync;
