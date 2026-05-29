@@ -1,4 +1,6 @@
 ~setupClicks = {
+    var clickFxBus = Bus.audio(s, 2);
+
     SynthDef(\clickBurst, { |out = 0, dur = 1.5, amp = 0.2,
                             rateStart = 2, rateEnd = 80, rateCurve = 4,
                             pitchStart = 800, pitchEnd = 5000|
@@ -10,15 +12,28 @@
         );
 
         var trig     = Impulse.ar(rateEnv);
-        var ringTime = TRand.ar(0.01, 0.03, trig);
+        var ringTime = TRand.ar(0.01, 0.05, trig);
         var click    = Ringz.ar(trig, pitchEnv, ringTime, 0.5);
-        var panned = Pan2.ar(click, LFNoise0.ar(rateEnv).range(-0.7, 0.7));
-        var wet    = FreeVerb.ar(panned, mix: 0.25, room: 0.6, damp: 0.6);
+        var panned   = Pan2.ar(click, LFNoise0.ar(rateEnv).range(-0.7, 0.7));
 
-        Out.ar(out, wet * ampEnv * amp);
+        Out.ar(out, panned * ampEnv * amp);
+    }).add;
+
+    SynthDef(\clickFx, { |in, out = 0|
+        var dry       = In.ar(in, 2);
+        var delayTime = LFNoise2.kr(0.06).range(0.04, 0.09);
+        var fbAmt     = 0.88;
+        var fb        = LocalIn.ar(2);
+        var delayed   = DelayC.ar(dry + (fb * fbAmt), 0.3, delayTime);
+        var wet       = dry + (delayed * 0.7);
+        var verbed    = FreeVerb.ar(wet, mix: 0.25, room: 0.6, damp: 0.6);
+        LocalOut.ar(LeakDC.ar(delayed).tanh);
+        Out.ar(out, verbed);
     }).add;
 
     s.sync;
+
+    Synth(\clickFx, [\in, clickFxBus, \out, 0], ~fxGroup);
 
     Tdef(\clickBurstSpawner, {
         rrand(20.0, 60.0).wait;
@@ -41,7 +56,8 @@
                 \rateEnd,    rateEnd,
                 \rateCurve,  rateCurve,
                 \pitchStart, pitchStart,
-                \pitchEnd,   pitchEnd
+                \pitchEnd,   pitchEnd,
+                \out,        clickFxBus
             ], ~voiceGroup);
 
             rrand(240.0, 480.0).wait;
