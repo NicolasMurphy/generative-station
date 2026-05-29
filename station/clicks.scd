@@ -10,7 +10,7 @@
         );
 
         var trig     = Impulse.ar(rateEnv);
-        var ringTime = TRand.ar(0.001, 0.020, trig);
+        var ringTime = TRand.ar(0.01, 0.03, trig);
         var click    = Ringz.ar(trig, pitchEnv, ringTime, 0.5);
         var panned = Pan2.ar(click, LFNoise0.ar(rateEnv).range(-0.7, 0.7));
         var wet    = FreeVerb.ar(panned, mix: 0.25, room: 0.6, damp: 0.6);

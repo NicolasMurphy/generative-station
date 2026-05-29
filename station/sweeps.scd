@@ -40,7 +40,7 @@
 
             Synth(\sweep, [
                 \dur,       rrand(2.0, 12.0),
-                \amp,       rrand(0.15, 0.30),
+                \amp,       rrand(0.05, 0.10),
                 \freqStart, freqStart,
                 \freqEnd,   freqEnd,
                 \rq,        rrand(0.01, 0.04),
