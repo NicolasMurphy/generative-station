@@ -3,18 +3,19 @@
 
     SynthDef(\sweep, { |out = 0, dur = 6, amp = 0.2,
                        freqStart = 200, freqEnd = 8000, rq = 0.02|
-        var noise   = WhiteNoise.ar();
+        var noise   = PinkNoise.ar();
         var freqEnv = EnvGen.kr(Env([freqStart, freqEnd], [dur], \exp));
+        var freqLag = Lag.kr(freqEnv, 0.015);
         var ampEnv  = EnvGen.kr(
             Env([0, 1, 1, 0], [dur * 0.08, dur * 0.84, dur * 0.08], \sine),
             doneAction: 2
         );
-        var filtered = BPF.ar(noise, freqEnv, rq) * 3;
+        var filtered = BPF.ar(noise, freqLag, rq) * 3;
         var sig = filtered * ampEnv * amp;
         Out.ar(out, sig ! 2);
     }).add;
 
-    SynthDef(\sweepFx, { |in, out = 0, fbAmt = 0.95, preDelay = 0.06|
+    SynthDef(\sweepFx, { |in, out = 0, fbAmt = 0.8, preDelay = 0.06|
         var dry        = In.ar(in, 2);
         var delayTime  = LFNoise2.kr(0.05).range(0.20, 0.60);
         var fb         = LocalIn.ar(2);
@@ -23,7 +24,7 @@
         var verbWet    = FreeVerb.ar(wet, mix: 1.0, room: 0.8, damp: 0.5);
         var preDelayed = DelayN.ar(verbWet, 0.2, preDelay);
         var verbed     = (wet * 0.7) + (preDelayed * 0.3);
-        LocalOut.ar(LeakDC.ar(delayed).tanh);
+        LocalOut.ar(LeakDC.ar(delayed).softclip);
         Out.ar(out, verbed * (1 - (In.kr(~sidechainBus, 1) * 0.3)));
     }).add;
 
@@ -32,7 +33,7 @@
     Synth(\sweepFx, [\in, sweepFxBus, \out, 0], ~fxGroup);
 
     Tdef(\sweepSpawner, {
-        rrand(15.0, 60.0).wait;
+        3.0.wait;
         loop {
             var sweepUp   = 0.5.coin;
             var freqLow   = exprand(80.0, 400.0);
@@ -41,15 +42,15 @@
             var freqEnd   = if(sweepUp) { freqHigh } { freqLow };
 
             Synth(\sweep, [
-                \dur,       exprand(0.4, 12.0),
-                \amp,       rrand(0.05, 0.10),
+                \dur,       exprand(0.6, 3.0),
+                \amp,       rrand(0.07, 0.13),
                 \freqStart, freqStart,
                 \freqEnd,   freqEnd,
                 \rq,        rrand(0.01, 0.04),
                 \out,       sweepFxBus
             ], ~voiceGroup);
 
-            rrand(60.0, 300.0).wait;
+            rrand(8.0, 20.0).wait;
         }
     }).play;
 };
