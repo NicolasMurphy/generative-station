@@ -33,7 +33,7 @@
     Synth(\sweepFx, [\in, sweepFxBus, \out, 0], ~fxGroup);
 
     Tdef(\sweepSpawner, {
-        3.0.wait;
+        rrand(15.0, 60.0).wait;
         loop {
             var sweepUp   = 0.5.coin;
             var freqLow   = exprand(80.0, 400.0);
@@ -50,7 +50,7 @@
                 \out,       sweepFxBus
             ], ~voiceGroup);
 
-            rrand(8.0, 20.0).wait;
+            rrand(60.0, 300.0).wait;
         }
     }).play;
 };
