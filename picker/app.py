@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import time
 from threading import Lock
 
@@ -12,7 +11,7 @@ SC_HOST = os.environ.get("SC_HOST", "station")
 SC_PORT = int(os.environ.get("SC_PORT", "57120"))
 DEBOUNCE_SECONDS = float(os.environ.get("DEBOUNCE_SECONDS", "30"))
 
-COMPOUND_PATTERN = re.compile(r"^[A-Za-z0-9 .,\-()'\[\]/+]{1,200}$")
+MAX_COMPOUND_LEN = 349
 ALLOWED_ALGORITHMS = {"linear", "inverse", "modulo"}
 MAX_PEAKS = 100
 MIN_FREQ = 20.0
@@ -36,8 +35,8 @@ def validate_payload(data):
         return f"missing fields: {missing}"
 
     compound = data["compound"]
-    if not isinstance(compound, str) or not COMPOUND_PATTERN.match(compound):
-        return "compound name invalid (must match pattern)"
+    if not isinstance(compound, str) or not 1 <= len(compound) <= MAX_COMPOUND_LEN:
+        return f"compound name invalid (must be 1-{MAX_COMPOUND_LEN} chars)"
 
     if not isinstance(data["accession"], str) or len(data["accession"]) > 100:
         return "accession invalid"

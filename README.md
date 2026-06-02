@@ -23,6 +23,7 @@ When a compound is generated on [mass-spectrum-to-audio-converter](https://githu
 - **Synthesis**: SuperCollider (scsynth + sclang)
 - **Sidecar**: Python, Flask, python-osc
 - **Streaming**: ffmpeg → Icecast (AAC)
+- **Visualization**: Three.js
 - **Reverse proxy**: Caddy (TLS, HTTP/3)
 - **Deployment**: Docker hosted on Hetzner VPS
 
