@@ -46,6 +46,7 @@ s.waitForBoot({
     }, "/compound");
 
     (here +/+ "swells.scd").load;
+    (here +/+ "lowplucks.scd").load;
     (here +/+ "plucks.scd").load;
     (here +/+ "clicks.scd").load;
     (here +/+ "sweeps.scd").load;
@@ -53,11 +54,32 @@ s.waitForBoot({
     (here +/+ "kick.scd").load;
 
     ~setupSwells.();
+    ~setupLowPlucks.();
     ~setupPlucks.();
     ~setupClicks.();
     ~setupSweeps.();
     ~setupBass.();
     ~setupKick.();
+
+    // swells <-> lowPlucks alternate, mutually exclusive, 5-20 min per leg.
+    // swells.scd is untouched — both spawners are driven by symbol. Each setup
+    // auto-starts its spawner, so we stop lowPlucks first to begin on swells.
+    // Leaving lowPlucks we ramp its feedback to 0 (over 2s) so a mid-bloom
+    // switch doesn't leave the delay droning underneath swells.
+    Tdef(\swellLowPluckSwitch, {
+        Tdef(\lowPluckSpawner).stop;
+        ~lowPluckFxSynth.set(\fb, 0, \fbLag, 2);
+        Tdef(\swellSpawner).play;
+        loop {
+            (rrand(5.0, 20.0) * 60).wait;       // swells leg
+            Tdef(\swellSpawner).stop;
+            Tdef(\lowPluckSpawner).play;
+            (rrand(5.0, 20.0) * 60).wait;       // lowPlucks leg
+            Tdef(\lowPluckSpawner).stop;
+            ~lowPluckFxSynth.set(\fb, 0, \fbLag, 2);
+            Tdef(\swellSpawner).play;
+        }
+    }).play;
 
     "[piece] all elements running".postln;
 });

@@ -30,6 +30,7 @@ services:
     volumes:
       - ./station/piece.scd:/app/piece.scd:ro
       - ./station/swells.scd:/app/swells.scd:ro
+      - ./station/lowplucks.scd:/app/lowplucks.scd:ro
       - ./station/plucks.scd:/app/plucks.scd:ro
       - ./station/clicks.scd:/app/clicks.scd:ro
       - ./station/sweeps.scd:/app/sweeps.scd:ro
