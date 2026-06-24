@@ -1,4 +1,4 @@
-station.berserkbrah.com {
+{$STATION_SITE:station.berserkbrah.com} {
     @picker path /webhook /current
     handle @picker {
         reverse_proxy picker:9000
