@@ -35,7 +35,7 @@
 
     s.sync;
 
-    Synth(\swellFx, [\in, fxBus, \out, 0], ~fxGroup);
+    Synth(\swellFx, [\in, fxBus, \out, ~masterBus], ~fxGroup);
 
     Tdef(\swellSpawner, {
         var start = thisThread.seconds;

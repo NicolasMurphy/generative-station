@@ -11,10 +11,26 @@ s.waitForBoot({
 
     ~voiceGroup = Group.new;
     ~fxGroup    = Group.after(~voiceGroup);
+    ~masterGroup = Group.after(~fxGroup);
+
+    // All final voice/FX outputs feed this private stereo bus. A single synth
+    // in ~masterGroup applies output protection before writing to JACK.
+    ~masterBus = Bus.audio(s, 2);
 
     // 1-channel control bus carrying the kick's ducking envelope (0 = no
     // duck, 1 = full duck). Read by voices/FX to apply sidechain attenuation.
     ~sidechainBus = Bus.control(s, 1);
+
+    SynthDef(\masterOut, { |in = 0, out = 0, gain = 1.0,
+                            ceiling = 0.8, limiterDur = 0.01|
+        var sig = In.ar(in, 2);
+        sig = LeakDC.ar(sig);
+        sig = sig * Lag.kr(gain, 0.1);
+        sig = Limiter.ar(sig, ceiling, limiterDur);
+        Out.ar(out, sig);
+    }).add;
+
+    s.sync;
 
     // Current compound, populated by /compound OSC messages from the picker
     // sidecar. Starts nil so voices fall back to their original random ranges.
@@ -61,9 +77,17 @@ s.waitForBoot({
     ~setupBass.();
     ~setupKick.();
 
+    ~masterSynth = Synth(\masterOut, [
+        \in, ~masterBus,
+        \out, 0,
+        \gain, 1.0,
+        \ceiling, 0.8,
+        \limiterDur, 0.01
+    ], ~masterGroup);
+
     // swells <-> lowPlucks alternate, mutually exclusive, 5-20 min per leg.
-    // swells.scd is untouched — both spawners are driven by symbol. Each setup
-    // auto-starts its spawner, so we stop lowPlucks first to begin on swells.
+    // Both spawners are driven by symbol. Each setup auto-starts its spawner,
+    // so we stop lowPlucks first to begin on swells.
     // Leaving lowPlucks we ramp its feedback to 0 (over 2s) so a mid-bloom
     // switch doesn't leave the delay droning underneath swells.
     Tdef(\swellLowPluckSwitch, {

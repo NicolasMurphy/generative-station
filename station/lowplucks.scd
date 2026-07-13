@@ -35,7 +35,11 @@
 
     // Global handle so the swell<->lowPluck switcher in piece.scd can ramp the
     // feedback down when it switches away (a mid-bloom stop would otherwise drone).
-    ~lowPluckFxSynth = Synth(\lowPluckFx, [\in, lowPluckFxBus, \out, 0, \fb, 0.85], ~fxGroup);
+    ~lowPluckFxSynth = Synth(\lowPluckFx, [
+        \in, lowPluckFxBus,
+        \out, ~masterBus,
+        \fb, 0.85
+    ], ~fxGroup);
 
     // Burst -> bloom cycle (replaces the old continuous density spawner):
     //   1. BURST   ~10 hits in 1-2s (single random notes on the fallback path,

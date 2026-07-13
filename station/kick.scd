@@ -37,7 +37,7 @@
     s.sync;
 
     "[kick] 4-on-the-floor at 100 bpm, window-gated".postln;
-    ~kickSynth = Synth(\kick, [\out, 0, \gate, 0], ~voiceGroup);
+    ~kickSynth = Synth(\kick, [\out, ~masterBus, \gate, 0], ~voiceGroup);
 
     // Window scheduler: cycles of 20-40 min, each with a 5-10 min on-window
     // and the remainder off. .set(\gate, ...) drives the synth's internal

@@ -30,7 +30,7 @@
 
     s.sync;
 
-    Synth(\sweepFx, [\in, sweepFxBus, \out, 0], ~fxGroup);
+    Synth(\sweepFx, [\in, sweepFxBus, \out, ~masterBus], ~fxGroup);
 
     Tdef(\sweepSpawner, {
         rrand(15.0, 60.0).wait;

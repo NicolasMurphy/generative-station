@@ -35,7 +35,7 @@
 
     s.sync;
 
-    Synth(\clickFx, [\in, clickFxBus, \out, 0], ~fxGroup);
+    Synth(\clickFx, [\in, clickFxBus, \out, ~masterBus], ~fxGroup);
 
     Tdef(\clickBurstSpawner, {
         rrand(20.0, 60.0).wait;

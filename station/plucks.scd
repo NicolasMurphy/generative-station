@@ -23,7 +23,7 @@
 
     s.sync;
 
-    Synth(\pluckFx, [\in, pluckFxBus, \out, 0], ~fxGroup);
+    Synth(\pluckFx, [\in, pluckFxBus, \out, ~masterBus], ~fxGroup);
 
     Tdef(\pluckSpawner, {
         loop {
