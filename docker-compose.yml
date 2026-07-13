@@ -35,7 +35,7 @@ services:
       - ./station/clicks.scd:/app/clicks.scd:ro
       - ./station/sweeps.scd:/app/sweeps.scd:ro
       - ./station/bass.scd:/app/bass.scd:ro
-      - ./station/kick.scd:/app/kick.scd:ro
+      - ./station/percussion.scd:/app/percussion.scd:ro
 
   caddy:
     image: caddy:2-alpine

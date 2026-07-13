@@ -17,8 +17,8 @@ s.waitForBoot({
     // in ~masterGroup applies output protection before writing to JACK.
     ~masterBus = Bus.audio(s, 2);
 
-    // 1-channel control bus carrying the kick's ducking envelope (0 = no
-    // duck, 1 = full duck). Read by voices/FX to apply sidechain attenuation.
+    // Reserved sidechain control bus (0 = no duck, 1 = full duck). It remains
+    // at zero unless a future element explicitly publishes a ducking envelope.
     ~sidechainBus = Bus.control(s, 1);
 
     SynthDef(\masterOut, { |in = 0, out = 0, gain = 1.0,
@@ -58,6 +58,9 @@ s.waitForBoot({
             freqs: freqs,
             amps: amps
         );
+        if(~updatePercussion.notNil) {
+            ~updatePercussion.();
+        };
         ("[piece] compound: " ++ name ++ " (" ++ n ++ " peaks)").postln;
     }, "/compound");
 
@@ -67,7 +70,7 @@ s.waitForBoot({
     (here +/+ "clicks.scd").load;
     (here +/+ "sweeps.scd").load;
     (here +/+ "bass.scd").load;
-    (here +/+ "kick.scd").load;
+    (here +/+ "percussion.scd").load;
 
     ~setupSwells.();
     ~setupLowPlucks.();
@@ -75,7 +78,7 @@ s.waitForBoot({
     ~setupClicks.();
     ~setupSweeps.();
     ~setupBass.();
-    ~setupKick.();
+    ~setupPercussion.();
 
     ~masterSynth = Synth(\masterOut, [
         \in, ~masterBus,
