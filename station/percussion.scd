@@ -5,12 +5,13 @@
     // sixteenth selects exactly one gesture, so the source layers never stack.
     SynthDef(\percussionTexture, { |out = 0, bpm = 128, amp = 0.12,
                                     active = 0, fadeTime = 5|
-        var freqs, baseRate, fastRate, fastTrig, hitType, cycleStep, stepInBar;
+        var freqs, baseRate, fastRate, fastTrig, hitType, cycleStep;
+        var barPos, kickMap, snareMap, ghostMap;
         var activeGain;
         var fillCycleStep, fillWindow, fillHitTrig, fillStep, fillKickPattern;
         var fillFlip, fillKickTrig, fillSnareTrig;
         var kickProbability, kickTrig, gestureGate, kickFreq, kickEnv, kickClick, kick;
-        var snareStepGate, snareTrig, snareEnv, snareNoise, snareBody, snare;
+        var snareProbability, snareTrig, snareEnv, snareNoise, snareBody, snare;
         var ghostProbability, ghostTrig, ghostEnv, ghostNoise, ghostBody, ghost;
         var kickBurstStart, kickBurstControlTrig, kickBurstChoice, kickBurstSteps, kickBurstRate;
         var kickBurstWindow, kickPlayTrig;
@@ -28,6 +29,19 @@
         freqs = NamedControl.kr(\freqs, [
             3200, 3900, 4700, 5600, 6500, 7400, 8400, 9500
         ]);
+        // The groove: for each sixteenth of the bar, starting on the
+        // downbeat, the chance of a kick, a snare and a ghost note. These
+        // defaults are the original pattern; each window sets its own (see
+        // ~percussionPatterns below).
+        kickMap = NamedControl.kr(\kickMap, [
+            0.7, 0, 0.5, 0.2,   0, 0, 0.5, 0,   0, 0, 0.15, 0,   0, 0, 0.5, 0
+        ]);
+        snareMap = NamedControl.kr(\snareMap, [
+            0, 0, 0, 0,   0.9, 0, 0, 0,   0, 0, 0, 0,   0.9, 0, 0, 0
+        ]);
+        ghostMap = NamedControl.kr(\ghostMap, [
+            0, 0.18, 0, 0.12,   0, 0, 0, 0.22,   0, 0.14, 0, 0.18,   0, 0, 0, 0.12
+        ]);
         baseRate = bpm / 60;
         activeGain = Lag.kr(active, fadeTime);
         fastRate = baseRate * 4;
@@ -40,9 +54,9 @@
         // float that stops incrementing at 2^24 (about 23 days at 128 bpm),
         // which froze the pattern on a step with no kick, snare or fill.
         cycleStep = Stepper.ar(fastTrig, 0, 0, 255);
-        // Within the bar: 1 is the downbeat, 5 and 13 the backbeats, 0 the
-        // last sixteenth.
-        stepInBar = cycleStep % 16;
+        // Within the bar, counted from 0 on the downbeat: the index into the
+        // maps above, so 4 and 12 are the backbeats.
+        barPos = (cycleStep - 1) % 16;
 
         // One bar of drum-only material every 16 bars (bar 16 is cycle steps
         // 241..255 then 0). The core pattern is SKSKSSKKSSSSKKKK, with
@@ -50,7 +64,7 @@
         fillCycleStep = cycleStep;
         fillWindow = ((fillCycleStep > 240.5) + (fillCycleStep < 0.5)).clip(0, 1);
         fillHitTrig = fastTrig * fillWindow;
-        fillStep = (fillCycleStep - 1) % 16;
+        fillStep = barPos;
         fillKickPattern = (
             ((fillStep > 0.5) * (fillStep < 1.5))
             + ((fillStep > 2.5) * (fillStep < 3.5))
@@ -95,27 +109,17 @@
         // rather than using CoinGate: CoinGate reads its probability once per
         // control block, i.e. still the previous step's value, which played
         // this whole map one sixteenth late.
-        kickProbability = (
-            (((stepInBar > 0.5) * (stepInBar < 1.5)) * 0.7)
-            + (((stepInBar > 2.5) * (stepInBar < 3.5)) * 0.5)
-            + (((stepInBar > 3.5) * (stepInBar < 4.5)) * 0.2)
-            + (((stepInBar > 6.5) * (stepInBar < 7.5)) * 0.5)
-            + (((stepInBar > 10.5) * (stepInBar < 11.5)) * 0.15)
-            + (((stepInBar > 14.5) * (stepInBar < 15.5)) * 0.5)
-        ).clip(0, 1);
+        kickProbability = Select.ar(barPos, K2A.ar(kickMap));
         kickTrig = (
             (fastTrig * normalGate * (1 - fillWindow)
                 * (TRand.ar(0, 1, fastTrig) < kickProbability))
             + fillKickTrig
         ).clip(0, 1);
 
-        snareStepGate = (
-            ((stepInBar > 4.5) * (stepInBar < 5.5))
-            + ((stepInBar > 12.5) * (stepInBar < 13.5))
-        ).clip(0, 1);
+        snareProbability = Select.ar(barPos, K2A.ar(snareMap));
         snareTrig = (
-            (CoinGate.ar(0.9, fastTrig * normalGate * snareStepGate)
-                * (1 - fillWindow))
+            (fastTrig * normalGate * (1 - fillWindow)
+                * (TRand.ar(0, 1, fastTrig) < snareProbability))
             + fillSnareTrig
         ).clip(0, 1);
 
@@ -154,14 +158,7 @@
 
         // Quiet grace notes fill selected gaps around the backbeats. They
         // always yield to full drum hits and active ratchets.
-        ghostProbability = (
-            (((stepInBar > 1.5) * (stepInBar < 2.5)) * 0.18)
-            + (((stepInBar > 3.5) * (stepInBar < 4.5)) * 0.12)
-            + (((stepInBar > 7.5) * (stepInBar < 8.5)) * 0.22)
-            + (((stepInBar > 9.5) * (stepInBar < 10.5)) * 0.14)
-            + (((stepInBar > 11.5) * (stepInBar < 12.5)) * 0.18)
-            + ((stepInBar < 0.5) * 0.12)
-        ).clip(0, 1);
+        ghostProbability = Select.ar(barPos, K2A.ar(ghostMap));
         ghostTrig = fastTrig
             * normalGate
             * (1 - fillWindow)
@@ -294,7 +291,7 @@
 
     s.sync;
 
-    Synth(\percussionOut, [
+    ~percussionOutSynth = Synth(\percussionOut, [
         \in, percussionBus,
         \out, ~masterBus,
         \bpm, 128,
@@ -333,17 +330,65 @@
         ~percussionWindowRoutine.stop;
     };
 
+    // Each window plays one of these grooves at one of these tempos, so the
+    // windows differ from each other while the drums stay the same. A map is
+    // the chance of a hit on each sixteenth of the bar, from the downbeat.
+    // "broken" is the original pattern and the most likely pick. Kicks win a
+    // collision with a snare, so no map puts both on one step.
+    ~percussionPatterns = [
+        (
+            name: "broken", weight: 4,
+            kick:  [0.7, 0, 0.5, 0.2,   0, 0, 0.5, 0,   0, 0, 0.15, 0,   0, 0, 0.5, 0],
+            snare: [0, 0, 0, 0,   0.9, 0, 0, 0,   0, 0, 0, 0,   0.9, 0, 0, 0],
+            ghost: [0, 0.18, 0, 0.12,   0, 0, 0, 0.22,   0, 0.14, 0, 0.18,   0, 0, 0, 0.12]
+        ),
+        (
+            // the backbeat once a bar, on beat 3
+            name: "half-time", weight: 2,
+            kick:  [0.8, 0, 0, 0.15,   0, 0, 0, 0.3,   0, 0, 0.55, 0,   0, 0, 0, 0.2],
+            snare: [0, 0, 0, 0,   0, 0, 0, 0,   0.9, 0, 0, 0,   0, 0, 0, 0],
+            ghost: [0, 0.1, 0, 0,   0.15, 0, 0.2, 0,   0, 0, 0, 0.15,   0.1, 0, 0.2, 0]
+        ),
+        (
+            // kicks pushed off the beat
+            name: "two-step", weight: 2,
+            kick:  [0.8, 0, 0, 0.35,   0, 0, 0.55, 0,   0, 0.3, 0.45, 0,   0, 0, 0, 0.3],
+            snare: [0, 0, 0, 0,   0.9, 0, 0, 0,   0, 0, 0, 0,   0.9, 0, 0, 0],
+            ghost: [0, 0.15, 0, 0,   0, 0.1, 0, 0.2,   0, 0, 0, 0.12,   0, 0.18, 0, 0]
+        ),
+        (
+            name: "sparse", weight: 1,
+            kick:  [0.6, 0, 0, 0,   0, 0, 0.25, 0,   0, 0, 0.35, 0,   0, 0, 0, 0],
+            snare: [0, 0, 0, 0,   0, 0, 0, 0,   0, 0, 0, 0,   0.85, 0, 0, 0],
+            ghost: [0, 0, 0, 0.1,   0, 0, 0, 0.12,   0, 0, 0, 0.1,   0, 0, 0.1, 0]
+        )
+    ];
+    ~percussionTempos = [120, 124, 128, 128, 128, 132, 136];
+
     ~percussionWindowRoutine = Routine({
         loop {
             var gap = rrand(10.0, 20.0) * 60;
             var window = rrand(5.0, 10.0) * 60;
+            var pattern, bpm;
 
             ("[percussion] silent for " ++ (gap / 60).round(0.1)
                 ++ " minutes").postln;
             gap.wait;
 
+            // Chosen and set while the window is still closed, so the
+            // change itself is never heard.
+            pattern = ~percussionPatterns.wchoose(
+                ~percussionPatterns.collect(_.weight).normalizeSum
+            );
+            bpm = ~percussionTempos.choose;
+            ~percussionTextureSynth.setn(\kickMap, pattern.kick);
+            ~percussionTextureSynth.setn(\snareMap, pattern.snare);
+            ~percussionTextureSynth.setn(\ghostMap, pattern.ghost);
+            ~percussionTextureSynth.set(\bpm, bpm);
+            ~percussionOutSynth.set(\bpm, bpm);
+
             ("[percussion] window open for " ++ (window / 60).round(0.1)
-                ++ " minutes").postln;
+                ++ " minutes: " ++ pattern.name ++ " at " ++ bpm ++ " bpm").postln;
             ~percussionTextureSynth.set(\active, 1);
             window.wait;
 
@@ -351,5 +396,5 @@
         };
     }).play(SystemClock);
 
-    "[percussion] scheduled windows ready @ 128 bpm".postln;
+    "[percussion] scheduled windows ready".postln;
 };
