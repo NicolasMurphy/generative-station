@@ -26,6 +26,9 @@ s.waitForBoot({
         };
     };
 
+    // Same helper as piece.scd.
+    ~place = { |sig, pan| [sig * (1 - pan.max(0)), sig * (1 + pan.min(0))] };
+
     // nil freqs -> lowPlucks uses its fallback random range. To audition chord
     // mode, set freqs/amps to test arrays, e.g.:
     //   freqs: [220, 277, 330, 440], amps: [1, 0.8, 0.6, 0.5]

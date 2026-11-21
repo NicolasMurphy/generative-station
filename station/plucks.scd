@@ -1,10 +1,10 @@
 ~setupPlucks = {
     var pluckFxBus = Bus.audio(s, 2);
 
-    SynthDef(\pluck, { |freq = 1500, amp = 0.12, atk = 0.005, rel = 0.25, out = 0|
+    SynthDef(\pluck, { |freq = 1500, amp = 0.12, atk = 0.005, rel = 0.25, pan = 0, out = 0|
         var env = EnvGen.kr(Env.perc(atk, rel, 1, -4), doneAction: 2);
         var sig = SinOsc.ar(freq) * env * amp;
-        Out.ar(out, sig ! 2);
+        Out.ar(out, ~place.(sig, pan));
     }).add;
 
     SynthDef(\pluckFx, { |in, out = 0, preDelay = 0.06|
@@ -45,6 +45,7 @@
                             \amp,  ampScale * ~currentCompound.amps[i],
                             \atk,  atk,
                             \rel,  rel,
+                            \pan,  rrand(-0.8, 0.8),
                             \out,  pluckFxBus
                         ], ~voiceGroup);
                     };
@@ -55,6 +56,7 @@
                         \amp,  rrand(0.012, 0.03),
                         \atk,  rrand(0.003, 0.01),
                         \rel,  rrand(0.15, 0.4),
+                        \pan,  rrand(-0.8, 0.8),
                         \out,  pluckFxBus
                     ], ~voiceGroup);
                 };

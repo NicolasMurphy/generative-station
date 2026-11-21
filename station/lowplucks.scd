@@ -3,10 +3,10 @@
 
     // Low-register percussive sine. Same pure-sine voice as swells/plucks, but
     // a short percussive envelope so it reads as a stab rather than a pad.
-    SynthDef(\lowPluck, { |freq = 300, amp = 0.06, atk = 0.005, rel = 0.5, out = 0|
+    SynthDef(\lowPluck, { |freq = 300, amp = 0.06, atk = 0.005, rel = 0.5, pan = 0, out = 0|
         var env = EnvGen.kr(Env.perc(atk, rel, 1, -4), doneAction: 2);
         var sig = SinOsc.ar(freq) * env * amp;
-        Out.ar(out, sig ! 2);
+        Out.ar(out, ~place.(sig, pan));
     }).add;
 
     // Delay with EXTERNALLY-DRIVEN feedback. The orchestrator (\lowPluckSpawner)
@@ -59,6 +59,7 @@
                 \amp,  amp,
                 \atk,  rrand(0.003, 0.01),
                 \rel,  rel,
+                \pan,  rrand(-0.5, 0.5),
                 \out,  lowPluckFxBus
             ], ~voiceGroup);
         };

@@ -49,6 +49,11 @@ s.waitForBoot({
         };
     };
 
+    // Places a mono signal in the stereo field without making it louder:
+    // the side it moves away from is turned down, the other is left alone.
+    // The pitched voices used to be identical in both channels.
+    ~place = { |sig, pan| [sig * (1 - pan.max(0)), sig * (1 + pan.min(0))] };
+
     // Current compound, populated by /compound OSC messages from the picker
     // sidecar. Starts nil so voices fall back to their original random ranges.
     ~currentCompound = (

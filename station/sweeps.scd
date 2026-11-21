@@ -2,7 +2,8 @@
     var sweepFxBus = Bus.audio(s, 2);
 
     SynthDef(\sweep, { |out = 0, dur = 6, amp = 0.2,
-                       freqStart = 200, freqEnd = 8000, rq = 0.02|
+                       freqStart = 200, freqEnd = 8000, rq = 0.02,
+                       panStart = 0, panEnd = 0|
         var noise   = PinkNoise.ar();
         var freqEnv = EnvGen.kr(Env([freqStart, freqEnd], [dur], \exp));
         var freqLag = Lag.kr(freqEnv, 0.015);
@@ -12,7 +13,7 @@
         );
         var filtered = BPF.ar(noise, freqLag, rq) * 3;
         var sig = filtered * ampEnv * amp;
-        Out.ar(out, sig ! 2);
+        Out.ar(out, ~place.(sig, Line.kr(panStart, panEnd, dur)));
     }).add;
 
     SynthDef(\sweepFx, { |in, out = 0, fbAmt = 0.8, preDelay = 0.06|
@@ -48,6 +49,8 @@
                     \freqStart, freqStart,
                     \freqEnd,   freqEnd,
                     \rq,        rrand(0.01, 0.04),
+                    \panStart,  rrand(-0.8, 0.8),
+                    \panEnd,    rrand(-0.8, 0.8),
                     \out,       sweepFxBus
                 ], ~voiceGroup);
             });

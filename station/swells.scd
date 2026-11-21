@@ -1,13 +1,13 @@
 ~setupSwells = {
     var fxBus = Bus.audio(s, 2);
 
-    SynthDef(\swellSine, { |freq = 440, amp = 0.04, atk = 3, rel = 5, out = 0|
+    SynthDef(\swellSine, { |freq = 440, amp = 0.04, atk = 3, rel = 5, pan = 0, out = 0|
         var env = EnvGen.kr(
             Env([0, 1, 0], [atk, rel], \sine),
             doneAction: 2
         );
         var sig = SinOsc.ar(freq) * env * amp;
-        Out.ar(out, sig ! 2);
+        Out.ar(out, ~place.(sig, pan));
     }).add;
 
     SynthDef(\swellFx, { |in, out = 0, preDelay = 0.08|
@@ -60,6 +60,7 @@
                             \amp,  ampScale * ~currentCompound.amps[i],
                             \atk,  atk,
                             \rel,  rel,
+                            \pan,  rrand(-0.7, 0.7),
                             \out,  fxBus
                         ], ~voiceGroup);
                     };
@@ -70,6 +71,7 @@
                         \amp,  rrand(0.02, 0.05),
                         \atk,  rrand(2.0, 6.0),
                         \rel,  rrand(3.0, 8.0),
+                        \pan,  rrand(-0.7, 0.7),
                         \out,  fxBus
                     ], ~voiceGroup);
                 };
