@@ -18,7 +18,7 @@ jobs:
           git checkout -q FETCH_HEAD
       - name: Shell syntax
         run: |
-          for f in deploy.sh status.sh ci/smoke.sh ci/test-deploy.sh icecast/entrypoint.sh; do sh -n "$f"; done
+          for f in deploy.sh status.sh ci/*.sh icecast/entrypoint.sh; do sh -n "$f"; done
           bash -n station/run.sh
       - name: deploy.sh behaviour
         run: sh ci/test-deploy.sh
@@ -32,6 +32,8 @@ jobs:
     concurrency:
       group: deploy
       cancel-in-progress: false
+    env:
+      SITE: https://station.berserkbrah.com
     steps:
       - name: Deploy over SSH
         # Pinned to a commit: this action is handed the deploy key.
@@ -53,3 +55,9 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             sh ./deploy.sh "$OLD"
+      # deploy.sh checked the containers from the inside. This is the view
+      # from the outside: TLS, Caddy and the stream as a listener gets them.
+      - name: Check the public site
+        run: |
+          curl -fsS -o check-site.sh "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/ci/check-site.sh"
+          sh check-site.sh "$SITE"

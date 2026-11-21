@@ -8,6 +8,8 @@ on:
 jobs:
   status:
     runs-on: ubuntu-latest
+    env:
+      SITE: https://station.berserkbrah.com
     steps:
       - name: Report over SSH
         # Pinned to a commit: this action is handed the deploy key.
@@ -22,3 +24,8 @@ jobs:
             set -eu
             cd ~/generative-station
             sh ./status.sh
+      - name: Check the public site
+        if: always()
+        run: |
+          curl -fsS -o check-site.sh "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/ci/check-site.sh"
+          sh check-site.sh "$SITE"

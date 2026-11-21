@@ -82,27 +82,10 @@ echo "   mean volume over 8 s: $volume dB"
 awk "BEGIN { exit !($volume > -70) }" || fail "the stream is silent ($volume dB)"
 
 echo "== the public site, through Caddy"
-# status <path>: the HTTP status Caddy answers with
-status() {
-    curl -s -o /dev/null -m 10 -w '%{http_code}' "$site$1" || true
-}
-ctype() {
-    curl -s -o /dev/null -m 10 -w '%{content_type}' "$site$1" || true
-}
-curl -fsS -m 10 "$site/" | grep -q '<title>' || fail "Caddy does not serve the page at /"
+sh ci/check-site.sh "$site" || fail "the site check failed"
 script=$(sed -n 's/.*"three": "\([^"]*\)".*/\1/p' web/index.html)
-[ -n "$script" ] || fail "could not find the visualiser script in web/index.html"
-case "$(ctype "$script")" in
-    *javascript*) ;;
-    *) fail "Caddy serves $script as '$(ctype "$script")', not JavaScript" ;;
-esac
-bytes=$(curl -s -m 4 "$site/stream" 2>/dev/null | wc -c) || true
-[ "$bytes" -gt 10000 ] || fail "Caddy passed only $bytes bytes of /stream in 4 s"
-[ "$(status /current)" = "204" ] || fail "/current answered $(status /current) before any compound, expected 204"
-for path in /admin/ /status-json.xsl /status.xsl; do
-    [ "$(status "$path")" = "404" ] || fail "Icecast's $path is reachable through Caddy ($(status "$path"))"
-done
-echo "   page, script and stream are served; Icecast's own pages are not"
+[ "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$site/current")" = "204" ] \
+    || fail "/current is not empty before any compound"
 
 echo "== the same page straight from Icecast (local runs use port 8000)"
 curl -fsS -m 10 http://127.0.0.1:8000/ | grep -q '<title>' || fail "Icecast does not serve the page at /"
@@ -113,8 +96,6 @@ case "$direct" in
 esac
 
 echo "== posting a compound to the webhook"
-[ "$(curl -s -o /dev/null -m 10 -w '%{http_code}' -X POST "$site/webhook")" = "401" ] \
-    || fail "the webhook accepted a request with no secret"
 answer=$(curl -s -m 10 "$site/webhook" \
     -H "Authorization: Bearer $secret" -H "Content-Type: application/json" \
     -d '{"compound":"CI smoke test","accession":"CI-1","algorithm":"linear","frequencies":[330.0,440.0,550.0],"amplitudes":[0.5,1,0.25]}') \
