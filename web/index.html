@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>generative-station</title>
 <style>
   html { background: #111; }
   body {
@@ -55,6 +56,28 @@
   }
   updateCompound();
   setInterval(updateCompound, 10000);
+
+  // The stream ends whenever the station or Icecast restarts. Reconnect
+  // rather than leave a dead player, but only for someone who was listening.
+  const player = document.querySelector('audio');
+  let listening = false;
+  let retryTimer = null;
+  player.addEventListener('playing', () => { listening = true; });
+  player.addEventListener('pause', () => {
+    // Only a pause on a healthy stream is the listener's own. The stream
+    // ending or failing also pauses the element.
+    if (!player.ended && !player.error && player.readyState > 2) listening = false;
+  });
+  function reconnect() {
+    if (!listening || retryTimer) return;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      player.load();
+      player.play().catch(reconnect);
+    }, 3000);
+  }
+  player.addEventListener('ended', reconnect);
+  player.addEventListener('error', reconnect);
 
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'f') return;
