@@ -34,25 +34,38 @@ count() {
 echo "   xruns: $(count xrun)   late bundles: $(count '^late ')   server failures: $(count 'FAILURE IN SERVER')   errors: $(count '^ERROR')"
 printf '%s\n' "$logs" | grep -E '^\[(piece|station|percussion|supervisor)\]' | tail -12 | sed 's/^/   /'
 
-echo "== stream speed against real time (takes a minute)"
-# Decode the stream for 10 s and then for 50 s of wall-clock time. The extra
-# audio decoded over the extra 40 s is the rate the station produces audio
-# at; Icecast's burst on connect is in both and cancels out. A station that
-# runs slow starves listeners' buffers (cutouts); one that runs fast gets
-# them dropped for falling behind.
-decoded() {
-    docker compose exec -T station timeout "$1" ffmpeg -hide_banner -nostdin \
-        -i http://icecast:8000/stream -f null - 2>&1 \
-        | tr '\r' '\n' | sed -n 's/.*time=\([0-9:.]*\).*/\1/p' | tail -1 \
-        | awk -F: '{print $1 * 3600 + $2 * 60 + $3}'
-}
-short=$(decoded 10)
-long=$(decoded 50)
-if [ -n "$short" ] && [ -n "$long" ]; then
-    awk "BEGIN { printf \"   %.3f x real time (1.000 is exact; this measurement is good to about 0.01)\n\", ($long - $short) / 40 }"
-else
-    echo "   could not measure"
-fi
+echo "== stream speed against real time (takes a minute and a half)"
+# One listener, timed: decode the stream and count the audio that arrives
+# between the 15 s and 75 s marks. By then Icecast's burst on connect has
+# been consumed, so audio arrives exactly as fast as the station makes it.
+# A station that runs slow starves listeners' buffers (cutouts); one that
+# runs fast gets them dropped for falling behind.
+docker compose exec -T station python3 -c '
+import subprocess, sys, time
+ffmpeg = subprocess.Popen(
+    ["ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-i", sys.argv[1],
+     "-f", "s16le", "-ac", "1", "-ar", "8000", "-"], stdout=subprocess.PIPE)
+start = first = last = None
+count = 0
+while True:
+    chunk = ffmpeg.stdout.read(1600)          # 0.1 s of 8 kHz mono 16-bit audio
+    if not chunk:
+        break
+    now = time.monotonic()
+    start = start or now
+    count += len(chunk)
+    if first is None and now - start >= 15:
+        first = (now, count)
+    if now - start >= 75:
+        last = (now, count)
+        break
+ffmpeg.kill()
+if first and last:
+    rate = (last[1] - first[1]) / 16000 / (last[0] - first[0])
+    print("   %.4f x real time (1.0000 is exact; good to about 0.003)" % rate)
+else:
+    print("   could not measure")
+' http://icecast:8000/stream || echo "   could not measure"
 
 echo "== ssh host key fingerprints"
 for f in /etc/ssh/ssh_host_*_key.pub; do
