@@ -16,8 +16,8 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          # The server's ED25519 host key; see deploy.yml.
-          fingerprint: SHA256:glnJfPlBOtZSoU1/g7QZn8RTTcA/77UXx+pPzz5iBrE
+          # The server's ECDSA host key; see deploy.yml.
+          fingerprint: SHA256:2xQsH1vrrsC21xbx0iNcCBniOmL3bfdixj+nq9E/u7M
           script: |
             set -eu
             cd ~/generative-station

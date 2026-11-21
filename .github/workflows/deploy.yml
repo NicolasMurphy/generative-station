@@ -40,9 +40,10 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          # The server's ED25519 host key (public; printed by the Status
-          # workflow). Without it the connection accepts any host.
-          fingerprint: SHA256:glnJfPlBOtZSoU1/g7QZn8RTTcA/77UXx+pPzz5iBrE
+          # The server's ECDSA host key, the one this client negotiates
+          # (public; printed by the Status workflow). Without it the
+          # connection accepts any host.
+          fingerprint: SHA256:2xQsH1vrrsC21xbx0iNcCBniOmL3bfdixj+nq9E/u7M
           # ssh-action does not stop at the first failing line on its own;
           # without "set -e" a failed fetch or build still ended green.
           script: |
