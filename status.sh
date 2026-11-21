@@ -32,7 +32,7 @@ count() {
     printf '%s\n' "$logs" | grep -ci -- "$1" || true
 }
 echo "   xruns: $(count xrun)   late bundles: $(count '^late ')   server failures: $(count 'FAILURE IN SERVER')   errors: $(count '^ERROR')"
-printf '%s\n' "$logs" | grep -E '^\[(piece|station|percussion|supervisor)\]' | tail -12 | sed 's/^/   /'
+printf '%s\n' "$logs" | grep -E '^\[(piece|station|percussion|weather|plucks)\]' | tail -14 | sed 's/^/   /'
 
 echo "== stream speed against real time (takes a minute and a half)"
 # One listener, timed: decode the stream and count the audio that arrives
