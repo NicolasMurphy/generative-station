@@ -23,6 +23,7 @@
         var microTrig, microFreq, microRq, microEnv, micro;
         var burstStart, burstChoice, burstRate, burstWindow, normalGate;
         var burstTrig, burstFreq, burstRq, burstEnv, burst;
+        var duckEnv;
 
         freqs = NamedControl.kr(\freqs, [
             3200, 3900, 4700, 5600, 6500, 7400, 8400, 9500
@@ -254,6 +255,17 @@
         );
         micro = BPF.ar(WhiteNoise.ar, microFreq, microRq) * microEnv;
         micro = Pan2.ar(micro, TRand.ar(-0.85, 0.85, microTrig), 0.75);
+
+        // Sidechain: every kick ducks the other voices, each by its own
+        // depth (they read ~sidechainBus). Fast snap to 1, smooth release,
+        // the envelope of the kick this engine replaced. Scaled by the
+        // window gain: the pattern keeps running while the percussion is
+        // silent, and must not pump anything then.
+        duckEnv = EnvGen.kr(
+            Env.new([0, 1, 0], [0.001, 0.22], [-4, -4]),
+            T2K.kr(kickPlayTrig)
+        );
+        Out.kr(~sidechainBus, duckEnv * activeGain);
 
         Out.ar(out, (
             (kick + snare + ghost + pin + crack + scrape + micro + burst) * amp

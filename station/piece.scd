@@ -17,8 +17,8 @@ s.waitForBoot({
     // in ~masterGroup applies output protection before writing to JACK.
     ~masterBus = Bus.audio(s, 2);
 
-    // Reserved sidechain control bus (0 = no duck, 1 = full duck). It remains
-    // at zero unless a future element explicitly publishes a ducking envelope.
+    // Sidechain control bus (0 = no duck, 1 = full duck). The percussion's
+    // kick publishes a ducking envelope here while its window is open.
     ~sidechainBus = Bus.control(s, 1);
 
     SynthDef(\masterOut, { |in = 0, out = 0, gain = 1.0,
