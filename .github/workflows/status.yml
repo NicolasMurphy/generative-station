@@ -10,11 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Report over SSH
-        uses: appleboy/ssh-action@v1
+        # Pinned to a commit: this action is handed the deploy key.
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # The server's ED25519 host key; see deploy.yml.
+          fingerprint: SHA256:glnJfPlBOtZSoU1/g7QZn8RTTcA/77UXx+pPzz5iBrE
           script: |
             set -eu
             cd ~/generative-station

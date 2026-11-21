@@ -11,7 +11,8 @@ set -eu
 cd "$(dirname "$0")"
 
 OLD="${1:-}"
-HEALTH_TRIES="${HEALTH_TRIES:-40}"   # x 3 s
+HEALTH_TRIES="${HEALTH_TRIES:-40}"
+HEALTH_SLEEP="${HEALTH_SLEEP:-3}"
 
 # True if anything under the given paths differs between $OLD and HEAD.
 changed() {
@@ -85,7 +86,7 @@ if [ -n "$station_restarted" ]; then
             break
         fi
         i=$((i + 1))
-        sleep 3
+        sleep "$HEALTH_SLEEP"
     done
     if [ -n "$station_ok" ]; then
         echo "station is streaming"
@@ -98,7 +99,7 @@ fi
 
 picker_ok=""
 i=0
-while [ "$i" -lt 10 ]; do
+while [ "$i" -lt "$HEALTH_TRIES" ]; do
     if docker compose exec -T picker python -c \
         "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3)" \
         >/dev/null 2>&1; then
@@ -106,7 +107,7 @@ while [ "$i" -lt 10 ]; do
         break
     fi
     i=$((i + 1))
-    sleep 2
+    sleep "$HEALTH_SLEEP"
 done
 if [ -z "$picker_ok" ]; then
     echo "FAILED: the picker is not answering /health. Last log lines:"

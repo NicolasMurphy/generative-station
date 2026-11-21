@@ -1,24 +1,48 @@
 name: Deploy
 
+# Every push is tested. A push to main is deployed, but only if the tests pass.
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: deploy
-  cancel-in-progress: false
-
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "${GITHUB_SHA}"
+          git checkout -q FETCH_HEAD
+      - name: Shell syntax
+        run: |
+          for f in deploy.sh status.sh ci/smoke.sh ci/test-deploy.sh icecast/entrypoint.sh; do sh -n "$f"; done
+          bash -n station/run.sh
+      - name: deploy.sh behaviour
+        run: sh ci/test-deploy.sh
+      - name: Build, boot and listen (picker tests, piece loads, stream has sound, webhook works)
+        run: sh ci/smoke.sh
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     steps:
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1
+        # Pinned to a commit: this action is handed the deploy key.
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # The server's ED25519 host key (public; printed by the Status
+          # workflow). Without it the connection accepts any host.
+          fingerprint: SHA256:glnJfPlBOtZSoU1/g7QZn8RTTcA/77UXx+pPzz5iBrE
           # ssh-action does not stop at the first failing line on its own;
           # without "set -e" a failed fetch or build still ended green.
           script: |
