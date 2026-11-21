@@ -12,7 +12,9 @@ services:
     container_name: gs-icecast
     logging: *default-logging
     ports:
-      - "8000:8000"
+      # Localhost only: listeners come in through Caddy. Publishing 8000 on
+      # every interface exposed Icecast and its /admin over plain HTTP.
+      - "127.0.0.1:8000:8000"
     environment:
       ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
       ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD}
