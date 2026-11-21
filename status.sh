@@ -34,6 +34,26 @@ count() {
 echo "   xruns: $(count xrun)   late bundles: $(count '^late ')   server failures: $(count 'FAILURE IN SERVER')   errors: $(count '^ERROR')"
 printf '%s\n' "$logs" | grep -E '^\[(piece|station|percussion|supervisor)\]' | tail -12 | sed 's/^/   /'
 
+echo "== stream speed against real time (takes a minute)"
+# Decode the stream for 10 s and then for 50 s of wall-clock time. The extra
+# audio decoded over the extra 40 s is the rate the station produces audio
+# at; Icecast's burst on connect is in both and cancels out. A station that
+# runs slow starves listeners' buffers (cutouts); one that runs fast gets
+# them dropped for falling behind.
+decoded() {
+    docker compose exec -T station timeout "$1" ffmpeg -hide_banner -nostdin \
+        -i http://icecast:8000/stream -f null - 2>&1 \
+        | tr '\r' '\n' | sed -n 's/.*time=\([0-9:.]*\).*/\1/p' | tail -1 \
+        | awk -F: '{print $1 * 3600 + $2 * 60 + $3}'
+}
+short=$(decoded 10)
+long=$(decoded 50)
+if [ -n "$short" ] && [ -n "$long" ]; then
+    awk "BEGIN { printf \"   %.3f x real time (1.000 is exact; this measurement is good to about 0.01)\n\", ($long - $short) / 40 }"
+else
+    echo "   could not measure"
+fi
+
 echo "== ssh host key fingerprints"
 for f in /etc/ssh/ssh_host_*_key.pub; do
     ssh-keygen -l -f "$f" | awk '{print "   " $2 " " $4}'
