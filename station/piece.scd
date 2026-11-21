@@ -42,8 +42,19 @@ s.waitForBoot({
         amps: nil
     );
 
+    // Voices spawn one synth per peak per event, so the peak count multiplies
+    // the server load: a 100-peak compound overran scsynth's 1024-node limit
+    // during dense swells (50 peaks peaked at 958 nodes) and notes were
+    // dropped. Only the ~maxPeaks strongest peaks are voiced, and peaks more
+    // than 40 dB below the strongest are skipped: they are inaudible in the
+    // mix and each one still costs a synth per event.
+    ~maxPeaks = 32;
+    ~peakFloor = 0.01;
+
     // Listen for compound updates from the picker sidecar (port 57120).
     // Message: [name, accession, algorithm, nPeaks, freq1..N, amp1..N]
+    // The picker re-sends the current compound periodically so that a
+    // restarted station picks it up again; an unchanged message is ignored.
     OSCdef(\compound, { |msg|
         var name = msg[1].asString;
         var accession = msg[2].asString;
@@ -51,17 +62,28 @@ s.waitForBoot({
         var n = msg[4].asInteger;
         var freqs = msg[(5..(4+n))];
         var amps = msg[((5+n)..(4+(2*n)))];
-        ~currentCompound = (
-            name: name,
-            accession: accession,
-            algorithm: algorithm,
-            freqs: freqs,
-            amps: amps
-        );
-        if(~updatePercussion.notNil) {
-            ~updatePercussion.();
+        var floor, keep;
+        if((n > 0) and: { msg != ~lastCompoundMsg }) {
+            ~lastCompoundMsg = msg;
+            floor = amps.maxItem * ~peakFloor;
+            keep = (0..(n - 1)).select { |i| amps[i] >= floor };
+            if(keep.size > ~maxPeaks) {
+                // strongest first, then back into their original order
+                keep = keep.sort { |a, b| amps[a] > amps[b] }.keep(~maxPeaks).sort;
+            };
+            ~currentCompound = (
+                name: name,
+                accession: accession,
+                algorithm: algorithm,
+                freqs: freqs[keep],
+                amps: amps[keep]
+            );
+            if(~updatePercussion.notNil) {
+                ~updatePercussion.();
+            };
+            ("[piece] compound: " ++ name ++ " (" ++ n ++ " peaks, "
+                ++ keep.size ++ " voiced)").postln;
         };
-        ("[piece] compound: " ++ name ++ " (" ++ n ++ " peaks)").postln;
     }, "/compound");
 
     (here +/+ "swells.scd").load;
