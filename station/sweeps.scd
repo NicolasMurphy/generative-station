@@ -41,14 +41,16 @@
             var freqStart = if(sweepUp) { freqLow } { freqHigh };
             var freqEnd   = if(sweepUp) { freqHigh } { freqLow };
 
-            Synth(\sweep, [
-                \dur,       exprand(0.6, 3.0),
-                \amp,       rrand(0.07, 0.13),
-                \freqStart, freqStart,
-                \freqEnd,   freqEnd,
-                \rq,        rrand(0.01, 0.04),
-                \out,       sweepFxBus
-            ], ~voiceGroup);
+            ~spawn.(\sweeps, {
+                Synth(\sweep, [
+                    \dur,       exprand(0.6, 3.0),
+                    \amp,       rrand(0.07, 0.13),
+                    \freqStart, freqStart,
+                    \freqEnd,   freqEnd,
+                    \rq,        rrand(0.01, 0.04),
+                    \out,       sweepFxBus
+                ], ~voiceGroup);
+            });
 
             rrand(60.0, 300.0).wait;
         }

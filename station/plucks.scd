@@ -27,36 +27,38 @@
 
     Tdef(\pluckSpawner, {
         loop {
-            if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
-                // Chord mode: spawn one pluck per compound peak, all at once.
-                // Random per-spawn transpose preserves intervallic shape while
-                // varying pitch height each cycle. Each pluck's amp is the base
-                // amp scaled by the compound's normalized amplitude — most
-                // spectra have a few prominent peaks plus a noise floor, so
-                // total energy stays reasonable without explicit N-normalization.
-                var transpose = rrand(1.0, 2.0);
-                var ampScale = rrand(0.012, 0.03);
-                var atk = rrand(0.003, 0.01);
-                var rel = rrand(0.15, 0.4);
-                ~currentCompound.freqs.do { |freq, i|
+            ~spawn.(\plucks, {
+                if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
+                    // Chord mode: spawn one pluck per compound peak, all at once.
+                    // Random per-spawn transpose preserves intervallic shape while
+                    // varying pitch height each cycle. Each pluck's amp is the base
+                    // amp scaled by the compound's normalized amplitude — most
+                    // spectra have a few prominent peaks plus a noise floor, so
+                    // total energy stays reasonable without explicit N-normalization.
+                    var transpose = rrand(1.0, 2.0);
+                    var ampScale = rrand(0.012, 0.03);
+                    var atk = rrand(0.003, 0.01);
+                    var rel = rrand(0.15, 0.4);
+                    ~currentCompound.freqs.do { |freq, i|
+                        Synth(\pluck, [
+                            \freq, freq * transpose,
+                            \amp,  ampScale * ~currentCompound.amps[i],
+                            \atk,  atk,
+                            \rel,  rel,
+                            \out,  pluckFxBus
+                        ], ~voiceGroup);
+                    };
+                } {
+                    // No compound loaded — original random pluck behavior.
                     Synth(\pluck, [
-                        \freq, freq * transpose,
-                        \amp,  ampScale * ~currentCompound.amps[i],
-                        \atk,  atk,
-                        \rel,  rel,
+                        \freq, exprand(1000.0, 3000.0),
+                        \amp,  rrand(0.012, 0.03),
+                        \atk,  rrand(0.003, 0.01),
+                        \rel,  rrand(0.15, 0.4),
                         \out,  pluckFxBus
                     ], ~voiceGroup);
                 };
-            } {
-                // No compound loaded — original random pluck behavior.
-                Synth(\pluck, [
-                    \freq, exprand(1000.0, 3000.0),
-                    \amp,  rrand(0.012, 0.03),
-                    \atk,  rrand(0.003, 0.01),
-                    \rel,  rrand(0.15, 0.4),
-                    \out,  pluckFxBus
-                ], ~voiceGroup);
-            };
+            });
             rrand(10.0, 30.0).wait;
         }
     }).play;

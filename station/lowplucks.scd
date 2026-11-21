@@ -71,25 +71,29 @@
 
             // --- 1. BURST: 8-13 hits. Feedback snaps straight to a high "catch"
             // level (fast lag) so the delay grabs the burst immediately. ---
-            ~lowPluckFxSynth.set(\fb, rrand(0.85, 0.9), \fbLag, 0.05);
+            ~spawn.(\lowPlucks, {
+                ~lowPluckFxSynth.set(\fb, rrand(0.85, 0.9), \fbLag, 0.05);
+            });
             nNotes.do {
                 var rel = rrand(0.3, 0.8);
-                if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
-                    // Spectrum path: each hit is the WHOLE spectrum played as a
-                    // chord, transposed so its base lands on a random pitch ->
-                    // 8-13 random chords. (Load a compound via the webhook.)
-                    var transpose = rrand(0.5, 1.5);
-                    ~currentCompound.freqs.do { |freq, i|
-                        spawnNote.(
-                            freq * transpose,
-                            rrand(0.03, 0.06) * ~currentCompound.amps[i],
-                            rel
-                        );
+                ~spawn.(\lowPlucks, {
+                    if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
+                        // Spectrum path: each hit is the WHOLE spectrum played as a
+                        // chord, transposed so its base lands on a random pitch ->
+                        // 8-13 random chords. (Load a compound via the webhook.)
+                        var transpose = rrand(0.5, 1.5);
+                        ~currentCompound.freqs.do { |freq, i|
+                            spawnNote.(
+                                freq * transpose,
+                                rrand(0.03, 0.06) * ~currentCompound.amps[i],
+                                rel
+                            );
+                        };
+                    } {
+                        // Fallback path: a single random low note per hit.
+                        spawnNote.(exprand(200.0, 1000.0), rrand(0.03, 0.06), rel);
                     };
-                } {
-                    // Fallback path: a single random low note per hit.
-                    spawnNote.(exprand(200.0, 1000.0), rrand(0.03, 0.06), rel);
-                };
+                });
                 ((burstDur / nNotes) * rrand(0.6, 1.4)).wait;
             };
 
@@ -98,12 +102,16 @@
 
             // --- 3. BLOOM: feedback past 100% -> regenerates, builds louder.
             // Ramp takes a chunk of bloomT so it climbs rather than slams. ---
-            ~lowPluckFxSynth.set(\fb, rrand(1.05, 1.12), \fbLag, bloomT * rrand(0.3, 0.5));
+            ~spawn.(\lowPlucks, {
+                ~lowPluckFxSynth.set(\fb, rrand(1.05, 1.12), \fbLag, bloomT * rrand(0.3, 0.5));
+            });
             bloomT.wait;
 
             // --- 4. SETTLE: back to a normal-delay level (~92-96%) -> the bloom
             // recedes and rings on normally before the next burst. ---
-            ~lowPluckFxSynth.set(\fb, rrand(0.92, 0.96), \fbLag, settleT * rrand(0.25, 0.45));
+            ~spawn.(\lowPlucks, {
+                ~lowPluckFxSynth.set(\fb, rrand(0.92, 0.96), \fbLag, settleT * rrand(0.25, 0.45));
+            });
             settleT.wait;
         }
     }).play;

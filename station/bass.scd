@@ -30,13 +30,15 @@
     Tdef(\bassSpawner, {
         rrand(30.0, 90.0).wait;
         loop {
-            Synth(\bass, [
-                \dur,       rrand(25.0, 40.0),
-                \amp,       rrand(0.22, 0.35),
-                \freqStart, exprand(50.0, 80.0),
-                \freqEnd,   exprand(18.0, 28.0),
-                \out,       ~masterBus
-            ], ~voiceGroup);
+            ~spawn.(\bass, {
+                Synth(\bass, [
+                    \dur,       rrand(25.0, 40.0),
+                    \amp,       rrand(0.22, 0.35),
+                    \freqStart, exprand(50.0, 80.0),
+                    \freqEnd,   exprand(18.0, 28.0),
+                    \out,       ~masterBus
+                ], ~voiceGroup);
+            });
 
             rrand(180.0, 420.0).wait;
         }

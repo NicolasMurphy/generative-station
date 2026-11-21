@@ -1,8 +1,8 @@
 // Standalone dial-in boot for lowPlucks. Run locally (scide, or
 // `sclang dial-lowplucks.scd`) to hear lowPlucks ALONE while tuning the sound.
 // Touches nothing else: piece.scd, swells.scd, and the live station are
-// unaffected. Once dialed in, lowPlucks gets wired into piece.scd with the
-// ~20-min swell<->lowPluck switch.
+// unaffected. In the station itself, piece.scd alternates lowPlucks with
+// swells.
 (
 s = Server.default;
 s.options.numOutputBusChannels = 2;
@@ -17,6 +17,14 @@ s.waitForBoot({
     ~voiceGroup = Group.new;
     ~fxGroup    = Group.after(~voiceGroup);
     ~sidechainBus = Bus.control(s, 1);  // stays 0 with no kick — no ducking
+
+    // Same helper as piece.scd: stamp each event s.latency ahead.
+    s.latency = 0.5;
+    ~spawn = { |voice, func|
+        try { s.bind(func) } { |err|
+            ("[" ++ voice ++ "] error, carrying on: " ++ err.errorString).postln;
+        };
+    };
 
     // nil freqs -> lowPlucks uses its fallback random range. To audition chord
     // mode, set freqs/amps to test arrays, e.g.:

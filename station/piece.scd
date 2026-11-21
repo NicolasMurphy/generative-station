@@ -32,6 +32,23 @@ s.waitForBoot({
 
     s.sync;
 
+    // Every voice spawns its notes through ~spawn.
+    //  - s.bind stamps the messages s.latency ahead, so the server starts
+    //    them on the block they were meant for. Sent unstamped, a message
+    //    only takes effect at the start of the next JACK period, which
+    //    snapped every note to an 85 ms grid (period 4096 at 48 kHz): notes
+    //    asked for 134 ms apart came out 85 or 171 ms apart. The latency has
+    //    to cover two periods of output latency plus the period itself;
+    //    0.2 s arrived late, 0.5 s lands within a few milliseconds.
+    //  - try: an error in one event is logged instead of ending the voice's
+    //    loop for good (a Tdef whose loop died still reports isPlaying).
+    s.latency = 0.5;
+    ~spawn = { |voice, func|
+        try { s.bind(func) } { |err|
+            ("[" ++ voice ++ "] error, carrying on: " ++ err.errorString).postln;
+        };
+    };
+
     // Current compound, populated by /compound OSC messages from the picker
     // sidecar. Starts nil so voices fall back to their original random ranges.
     ~currentCompound = (
@@ -94,6 +111,21 @@ s.waitForBoot({
     (here +/+ "bass.scd").load;
     (here +/+ "percussion.scd").load;
 
+    // A file with a syntax error does not throw when loaded. It prints the
+    // error and leaves its setup function undefined, and calling nil does
+    // nothing, so the piece would carry on without that voice and still
+    // report itself running. Stop here instead.
+    [
+        \swells -> ~setupSwells, \lowplucks -> ~setupLowPlucks,
+        \plucks -> ~setupPlucks, \clicks -> ~setupClicks,
+        \sweeps -> ~setupSweeps, \bass -> ~setupBass,
+        \percussion -> ~setupPercussion
+    ].do { |voice|
+        if(voice.value.isNil) {
+            Error(voice.key ++ ".scd did not load, see the error above").throw;
+        };
+    };
+
     ~setupSwells.();
     ~setupLowPlucks.();
     ~setupPlucks.();
@@ -115,9 +147,12 @@ s.waitForBoot({
     // so we stop lowPlucks first to begin on swells.
     // Leaving lowPlucks we ramp its feedback to 0 (over 2s) so a mid-bloom
     // switch doesn't leave the delay droning underneath swells.
+    // The feedback resets go through ~spawn like the spawner's own feedback
+    // moves, so they are stamped in order: unstamped, a reset could land
+    // before a bloom the spawner had already scheduled and leave it droning.
     Tdef(\swellLowPluckSwitch, {
         Tdef(\lowPluckSpawner).stop;
-        ~lowPluckFxSynth.set(\fb, 0, \fbLag, 2);
+        ~spawn.(\switch, { ~lowPluckFxSynth.set(\fb, 0, \fbLag, 2) });
         Tdef(\swellSpawner).play;
         loop {
             (rrand(5.0, 20.0) * 60).wait;       // swells leg
@@ -125,11 +160,14 @@ s.waitForBoot({
             Tdef(\lowPluckSpawner).play;
             (rrand(5.0, 20.0) * 60).wait;       // lowPlucks leg
             Tdef(\lowPluckSpawner).stop;
-            ~lowPluckFxSynth.set(\fb, 0, \fbLag, 2);
+            ~spawn.(\switch, { ~lowPluckFxSynth.set(\fb, 0, \fbLag, 2) });
             Tdef(\swellSpawner).play;
         }
     }).play;
 
     "[piece] all elements running".postln;
+    // run.sh waits for this file. sclang stays up when the piece fails to
+    // load, so the process being alive says nothing about the piece.
+    File.use("/tmp/gs-piece-ready", "w", { |f| f.write("ready\n") });
 });
 )

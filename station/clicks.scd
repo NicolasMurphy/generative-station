@@ -51,16 +51,18 @@
             var pitchStart = if(pitchUp) { pitchLow } { pitchHigh };
             var pitchEnd   = if(pitchUp) { pitchHigh } { pitchLow };
 
-            Synth(\clickBurst, [
-                \dur,        rrand(1.0, 2.0),
-                \amp,        rrand(0.15, 0.25),
-                \rateStart,  rateStart,
-                \rateEnd,    rateEnd,
-                \rateCurve,  rateCurve,
-                \pitchStart, pitchStart,
-                \pitchEnd,   pitchEnd,
-                \out,        clickFxBus
-            ], ~voiceGroup);
+            ~spawn.(\clicks, {
+                Synth(\clickBurst, [
+                    \dur,        rrand(1.0, 2.0),
+                    \amp,        rrand(0.15, 0.25),
+                    \rateStart,  rateStart,
+                    \rateEnd,    rateEnd,
+                    \rateCurve,  rateCurve,
+                    \pitchStart, pitchStart,
+                    \pitchEnd,   pitchEnd,
+                    \out,        clickFxBus
+                ], ~voiceGroup);
+            });
 
             rrand(240.0, 480.0).wait;
         }
