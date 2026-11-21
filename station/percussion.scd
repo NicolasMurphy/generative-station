@@ -5,7 +5,7 @@
     // sixteenth selects exactly one gesture, so the source layers never stack.
     SynthDef(\percussionTexture, { |out = 0, bpm = 128, amp = 0.12,
                                     active = 0, fadeTime = 5|
-        var freqs, baseRate, fastRate, fastTrig, hitType, stepInBar;
+        var freqs, baseRate, fastRate, fastTrig, hitType, cycleStep, stepInBar;
         var activeGain;
         var fillCycleStep, fillWindow, fillHitTrig, fillStep, fillKickPattern;
         var fillFlip, fillKickTrig, fillSnareTrig;
@@ -32,14 +32,24 @@
         fastRate = baseRate * 4;
         fastTrig = Impulse.ar(fastRate);
         hitType = TIRand.ar(0, 3, fastTrig);
-        stepInBar = PulseCount.ar(fastTrig) % 16;
 
-        // One bar of drum-only material every 16 bars. The core pattern is
-        // SKSKSSKKSSSSKKKK, with occasional per-step inversions.
-        fillCycleStep = PulseCount.ar(fastTrig) % 256;
-        fillWindow = fillCycleStep > 239.5;
+        // Position in the 16-bar cycle, in sixteenths: 1 on the first
+        // downbeat, counting to 255, then 0 on the last sixteenth of bar 16.
+        // The counter has to wrap. A free-running PulseCount is a 32-bit
+        // float that stops incrementing at 2^24 (about 23 days at 128 bpm),
+        // which froze the pattern on a step with no kick, snare or fill.
+        cycleStep = Stepper.ar(fastTrig, 0, 0, 255);
+        // Within the bar: 1 is the downbeat, 5 and 13 the backbeats, 0 the
+        // last sixteenth.
+        stepInBar = cycleStep % 16;
+
+        // One bar of drum-only material every 16 bars (bar 16 is cycle steps
+        // 241..255 then 0). The core pattern is SKSKSSKKSSSSKKKK, with
+        // occasional per-step inversions.
+        fillCycleStep = cycleStep;
+        fillWindow = ((fillCycleStep > 240.5) + (fillCycleStep < 0.5)).clip(0, 1);
         fillHitTrig = fastTrig * fillWindow;
-        fillStep = fillCycleStep % 16;
+        fillStep = (fillCycleStep - 1) % 16;
         fillKickPattern = (
             ((fillStep > 0.5) * (fillStep < 1.5))
             + ((fillStep > 2.5) * (fillStep < 3.5))
@@ -80,6 +90,10 @@
 
         // Weighted kick map: beat 1 remains the strongest anchor, while a few
         // lower-probability placements keep successive bars from repeating.
+        // The coin flip compares a per-step random value against the map
+        // rather than using CoinGate: CoinGate reads its probability once per
+        // control block, i.e. still the previous step's value, which played
+        // this whole map one sixteenth late.
         kickProbability = (
             (((stepInBar > 0.5) * (stepInBar < 1.5)) * 0.7)
             + (((stepInBar > 2.5) * (stepInBar < 3.5)) * 0.5)
@@ -89,8 +103,8 @@
             + (((stepInBar > 14.5) * (stepInBar < 15.5)) * 0.5)
         ).clip(0, 1);
         kickTrig = (
-            (CoinGate.ar(kickProbability, fastTrig * normalGate)
-                * (1 - fillWindow))
+            (fastTrig * normalGate * (1 - fillWindow)
+                * (TRand.ar(0, 1, fastTrig) < kickProbability))
             + fillKickTrig
         ).clip(0, 1);
 
@@ -147,15 +161,13 @@
             + (((stepInBar > 11.5) * (stepInBar < 12.5)) * 0.18)
             + ((stepInBar < 0.5) * 0.12)
         ).clip(0, 1);
-        ghostTrig = CoinGate.ar(
-            ghostProbability,
-            fastTrig
-                * normalGate
-                * (1 - fillWindow)
-                * (1 - drumBurstActive)
-                * (1 - kickPlayTrig)
-                * (1 - snarePlayTrig)
-        );
+        ghostTrig = fastTrig
+            * normalGate
+            * (1 - fillWindow)
+            * (1 - drumBurstActive)
+            * (1 - kickPlayTrig)
+            * (1 - snarePlayTrig)
+            * (TRand.ar(0, 1, fastTrig) < ghostProbability);
 
         gestureGate = normalGate
             * (1 - fillWindow)
