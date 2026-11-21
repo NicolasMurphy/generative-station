@@ -1,11 +1,14 @@
 #!/bin/sh
 # End-to-end check that CI runs before every deploy, on a throwaway Docker
-# host. It builds the images, starts Icecast, the station and the picker,
-# and fails unless:
+# host. It builds the images, starts the whole stack with Caddy serving
+# plain HTTP on localhost (ports 80 and 8000 must be free), and fails unless:
 #   - the picker's unit tests pass,
 #   - the piece loads and the encoder connects to Icecast,
 #   - the stream carries sound (a piece that failed to load streams silence),
-#   - a compound posted to the webhook reaches SuperCollider,
+#   - Caddy serves the page, its script and the stream, and nothing of
+#     Icecast's own pages,
+#   - a compound posted to the public webhook reaches SuperCollider and
+#     shows up on /current,
 #   - SuperCollider reported no errors along the way.
 set -eu
 cd "$(dirname "$0")/.."
@@ -19,6 +22,10 @@ STATION_WEBHOOK_SECRET=ci-secret
 ENV
 fi
 secret=$(sed -n 's/^STATION_WEBHOOK_SECRET=//p' .env)
+# Plain HTTP on localhost, so Caddy does not ask for a real certificate.
+STATION_SITE="${STATION_SITE:-http://localhost}"
+export STATION_SITE
+site=http://localhost
 
 station_logs() {
     docker compose logs --no-color station 2>&1
@@ -40,8 +47,8 @@ docker compose run --rm --no-deps -T \
     -e PYTHONDONTWRITEBYTECODE=1 -v "$PWD/picker:/src:ro" --entrypoint sh picker \
     -c "pip install -q --root-user-action=ignore pytest && cd /src && python -m pytest -q -p no:cacheprovider"
 
-echo "== starting icecast, station and picker"
-docker compose up -d icecast station picker
+echo "== starting the stack"
+docker compose up -d
 
 echo "== waiting for the piece to load and the encoder to connect"
 ready=""
@@ -74,20 +81,48 @@ echo "   mean volume over 8 s: $volume dB"
 # Digital silence reads -91 dB; the piece at its quietest is far above -70.
 awk "BEGIN { exit !($volume > -70) }" || fail "the stream is silent ($volume dB)"
 
+echo "== the public site, through Caddy"
+# status <path>: the HTTP status Caddy answers with
+status() {
+    curl -s -o /dev/null -m 10 -w '%{http_code}' "$site$1" || true
+}
+ctype() {
+    curl -s -o /dev/null -m 10 -w '%{content_type}' "$site$1" || true
+}
+curl -fsS -m 10 "$site/" | grep -q '<title>' || fail "Caddy does not serve the page at /"
+script=$(sed -n 's/.*"three": "\([^"]*\)".*/\1/p' web/index.html)
+[ -n "$script" ] || fail "could not find the visualiser script in web/index.html"
+case "$(ctype "$script")" in
+    *javascript*) ;;
+    *) fail "Caddy serves $script as '$(ctype "$script")', not JavaScript" ;;
+esac
+bytes=$(curl -s -m 4 "$site/stream" 2>/dev/null | wc -c) || true
+[ "$bytes" -gt 10000 ] || fail "Caddy passed only $bytes bytes of /stream in 4 s"
+[ "$(status /current)" = "204" ] || fail "/current answered $(status /current) before any compound, expected 204"
+for path in /admin/ /status-json.xsl /status.xsl; do
+    [ "$(status "$path")" = "404" ] || fail "Icecast's $path is reachable through Caddy ($(status "$path"))"
+done
+echo "   page, script and stream are served; Icecast's own pages are not"
+
+echo "== the same page straight from Icecast (local runs use port 8000)"
+curl -fsS -m 10 http://127.0.0.1:8000/ | grep -q '<title>' || fail "Icecast does not serve the page at /"
+direct=$(curl -s -o /dev/null -m 10 -w '%{content_type}' "http://127.0.0.1:8000$script" || true)
+case "$direct" in
+    *javascript*) ;;
+    *) fail "Icecast serves $script as '$direct', not JavaScript" ;;
+esac
+
 echo "== posting a compound to the webhook"
-answer=$(docker compose exec -T -e SECRET="$secret" picker python -c '
-import json, os, urllib.request
-body = json.dumps({
-    "compound": "CI smoke test", "accession": "CI-1", "algorithm": "linear",
-    "frequencies": [330.0, 440.0, 550.0], "amplitudes": [0.5, 1, 0.25],
-}).encode()
-request = urllib.request.Request(
-    "http://127.0.0.1:9000/webhook", data=body,
-    headers={"Authorization": "Bearer " + os.environ["SECRET"],
-             "Content-Type": "application/json"})
-print(json.load(urllib.request.urlopen(request, timeout=5))["status"])
-') || fail "the webhook request failed"
-[ "$answer" = "ok" ] || fail "the webhook answered '$answer', expected 'ok'"
+[ "$(curl -s -o /dev/null -m 10 -w '%{http_code}' -X POST "$site/webhook")" = "401" ] \
+    || fail "the webhook accepted a request with no secret"
+answer=$(curl -s -m 10 "$site/webhook" \
+    -H "Authorization: Bearer $secret" -H "Content-Type: application/json" \
+    -d '{"compound":"CI smoke test","accession":"CI-1","algorithm":"linear","frequencies":[330.0,440.0,550.0],"amplitudes":[0.5,1,0.25]}') \
+    || fail "the webhook request failed"
+case "$answer" in
+    *'"status":"ok"'*) ;;
+    *) fail "the webhook answered '$answer', expected status ok" ;;
+esac
 
 arrived=""
 i=0
@@ -102,7 +137,11 @@ while [ "$i" -lt 10 ]; do
     sleep 2
 done
 [ -n "$arrived" ] || fail "the compound did not reach SuperCollider"
-echo "   compound reached SuperCollider"
+case "$(curl -s -m 10 "$site/current")" in
+    *'"name":"CI smoke test"'*) ;;
+    *) fail "/current does not show the compound" ;;
+esac
+echo "   compound reached SuperCollider and shows on /current"
 
 echo "== checking for errors after 15 s of the compound playing"
 sleep 15
@@ -110,7 +149,7 @@ logs=$(station_logs)
 case "$logs" in
     *"ERROR"* | *"FAILURE IN SERVER"*) fail "SuperCollider reported an error" ;;
 esac
-for c in gs-icecast gs-station gs-picker; do
+for c in gs-icecast gs-station gs-picker gs-caddy; do
     running=$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null || echo false)
     [ "$running" = "true" ] || fail "$c is not running"
 done

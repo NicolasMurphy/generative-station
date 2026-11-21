@@ -44,6 +44,7 @@
         <webroot>/usr/share/icecast2/web</webroot>
         <adminroot>/usr/share/icecast2/admin</adminroot>
         <alias source="/" destination="/custom/index.html"/>
+        <alias source="/vendor/three-0.160.0.module.min.js" destination="/custom/vendor/three-0.160.0.module.min.js"/>
     </paths>
 
     <logging>
