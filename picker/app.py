@@ -1,7 +1,8 @@
+import hmac
 import logging
 import os
 import time
-from threading import Lock
+from threading import Lock, Thread
 
 from flask import Flask, jsonify, request
 from pythonosc.udp_client import SimpleUDPClient
@@ -10,6 +11,9 @@ WEBHOOK_SECRET = os.environ["STATION_WEBHOOK_SECRET"]
 SC_HOST = os.environ.get("SC_HOST", "station")
 SC_PORT = int(os.environ.get("SC_PORT", "57120"))
 DEBOUNCE_SECONDS = float(os.environ.get("DEBOUNCE_SECONDS", "30"))
+# The station forgets the compound when its container restarts. Re-sending
+# the current one keeps the stream and GET /current in agreement.
+RESEND_SECONDS = float(os.environ.get("RESEND_SECONDS", "60"))
 
 MAX_COMPOUND_LEN = 349
 ALLOWED_ALGORITHMS = {"linear", "inverse", "modulo"}
@@ -22,7 +26,36 @@ osc_client = SimpleUDPClient(SC_HOST, SC_PORT)
 
 _last_event_time = 0.0
 _current_compound = None  # latest accepted event, exposed via GET /current
+_current_osc_args = None  # the same event as sent to SuperCollider
 _lock = Lock()
+
+
+def _is_number(value):
+    # bool is a subclass of int, and a JSON true would reach SuperCollider as
+    # a non-number and kill the voice that tries to multiply by it.
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def send_compound(osc_args):
+    try:
+        osc_client.send_message("/compound", osc_args)
+        return True
+    except OSError as exc:  # station container down or not resolvable yet
+        app.logger.warning("osc send failed: %s", exc)
+        return False
+
+
+def _resend_loop():
+    while True:
+        time.sleep(RESEND_SECONDS)
+        with _lock:
+            osc_args = _current_osc_args
+        if osc_args is not None:
+            send_compound(osc_args)
+
+
+if RESEND_SECONDS > 0:
+    Thread(target=_resend_loop, daemon=True).start()
 
 
 def validate_payload(data):
@@ -54,10 +87,10 @@ def validate_payload(data):
         return f"frequencies length must be 1-{MAX_PEAKS}"
 
     for f in freqs:
-        if not isinstance(f, (int, float)) or not MIN_FREQ <= f <= MAX_FREQ:
+        if not _is_number(f) or not MIN_FREQ <= f <= MAX_FREQ:
             return f"frequency {f} out of audible range [{MIN_FREQ}, {MAX_FREQ}]"
     for a in amps:
-        if not isinstance(a, (int, float)) or not 0.0 <= a <= 1.0:
+        if not _is_number(a) or not 0.0 <= a <= 1.0:
             return f"amplitude {a} out of range [0, 1]"
 
     return None
@@ -66,7 +99,11 @@ def validate_payload(data):
 @app.post("/webhook")
 def webhook():
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer ") or auth[7:] != WEBHOOK_SECRET:
+    token = auth[7:] if auth.startswith("Bearer ") else ""
+    # An unset secret must never authorize anything.
+    if not WEBHOOK_SECRET or not hmac.compare_digest(
+        token.encode(), WEBHOOK_SECRET.encode()
+    ):
         return jsonify({"error": "unauthorized"}), 401
 
     data = request.get_json(silent=True)
@@ -78,10 +115,18 @@ def webhook():
         app.logger.warning("rejected: %s", err)
         return jsonify({"error": err}), 400
 
-    global _last_event_time, _current_compound
+    global _last_event_time, _current_compound, _current_osc_args
     now = time.time()
     freqs = data["frequencies"]
     amps = data["amplitudes"]
+    osc_args = [
+        data["compound"],
+        data["accession"],
+        data["algorithm"],
+        len(freqs),
+        *freqs,
+        *amps,
+    ]
     with _lock:
         if now - _last_event_time < DEBOUNCE_SECONDS:
             app.logger.info("debounced: %s", data["compound"])
@@ -94,16 +139,10 @@ def webhook():
             "parameters": data.get("parameters", {}),
             "n_peaks": len(freqs),
         }
+        _current_osc_args = osc_args
 
-    osc_args = [
-        data["compound"],
-        data["accession"],
-        data["algorithm"],
-        len(freqs),
-        *freqs,
-        *amps,
-    ]
-    osc_client.send_message("/compound", osc_args)
+    # A failed send is retried by the resend loop.
+    send_compound(osc_args)
     app.logger.info("accepted: %s (%d peaks)", data["compound"], len(freqs))
     return jsonify({"status": "ok"}), 200
 
