@@ -78,6 +78,9 @@ services:
       SC_HOST: station
       SC_PORT: "57120"
       DEBOUNCE_SECONDS: "30"
+    volumes:
+      # the visit counter, the only state that outlives a container
+      - picker_data:/data
     depends_on:
       - station
     restart: unless-stopped
@@ -85,3 +88,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  picker_data:
