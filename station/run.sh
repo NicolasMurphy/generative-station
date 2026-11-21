@@ -46,7 +46,9 @@ until nc -z "$ICECAST_HOST" "$ICECAST_PORT"; do
 done
 
 echo "[station] starting ffmpeg encoder..."
-ffmpeg -hide_banner -loglevel info \
+# -nostats: without it ffmpeg writes a progress line twice a second, which
+# is all the container log would ever contain (about 12 MB a day).
+ffmpeg -hide_banner -loglevel info -nostats \
     -f jack -i SC-Encoder -channels 2 \
     -c:a aac -b:a 128k -ar 48000 \
     -content_type audio/aac \

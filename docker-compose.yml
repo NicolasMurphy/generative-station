@@ -1,7 +1,16 @@
+# Container logs are kept by Docker with no size limit by default; these
+# services run for months, so cap them.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   icecast:
     build: ./icecast
     container_name: gs-icecast
+    logging: *default-logging
     ports:
       - "8000:8000"
     environment:
@@ -15,6 +24,7 @@ services:
   station:
     build: ./station
     container_name: gs-station
+    logging: *default-logging
     depends_on:
       - icecast
     environment:
@@ -40,6 +50,7 @@ services:
   caddy:
     image: caddy:2-alpine
     container_name: gs-caddy
+    logging: *default-logging
     environment:
       STATION_SITE: ${STATION_SITE:-station.berserkbrah.com}
     ports:
@@ -58,6 +69,7 @@ services:
   picker:
     build: ./picker
     container_name: gs-picker
+    logging: *default-logging
     environment:
       STATION_WEBHOOK_SECRET: ${STATION_WEBHOOK_SECRET}
       SC_HOST: station
