@@ -1,0 +1,21 @@
+name: Status
+
+# A read-only look at the server: what is running, how loaded it is and
+# whether the station is healthy. Run it from the Actions tab.
+on:
+  workflow_dispatch:
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -eu
+            cd ~/generative-station
+            sh ./status.sh
