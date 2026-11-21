@@ -45,6 +45,8 @@
         <adminroot>/usr/share/icecast2/admin</adminroot>
         <alias source="/" destination="/custom/index.html"/>
         <alias source="/vendor/three-0.160.0.module.min.js" destination="/custom/vendor/three-0.160.0.module.min.js"/>
+        <alias source="/viz-rings.js" destination="/custom/viz-rings.js"/>
+        <alias source="/viz-bloom.js" destination="/custom/viz-bloom.js"/>
     </paths>
 
     <logging>

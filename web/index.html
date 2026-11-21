@@ -13,7 +13,7 @@
     padding: 1.5rem;
     margin: 0;
   }
-  #viz {
+  canvas.viz {
     position: fixed;
     inset: 0;
     width: 100%;
@@ -27,6 +27,33 @@
     position: relative;
     z-index: 1;
   }
+  #status {
+    position: fixed;
+    left: 1.5rem;
+    bottom: 1.25rem;
+    z-index: 1;
+    font-size: 0.8rem;
+    line-height: 1.75;
+    color: #8a8a8a;
+  }
+  #status b { color: #ccc; font-weight: normal; }
+  #visits span {
+    display: inline-block;
+    margin-right: 1px;
+    padding: 0 0.32em;
+    background: #000;
+    border: 1px solid #333;
+    color: #e6e6e6;
+  }
+  #visual-switch {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline dotted;
+  }
 </style>
 <script type="importmap">
 {
@@ -37,25 +64,84 @@
 </script>
 </head>
 <body>
-<canvas id="viz"></canvas>
+<canvas id="viz" class="viz"></canvas>
+<canvas id="viz-gpu" class="viz"></canvas>
 <audio controls src="/stream"></audio>
 <p id="compound">awaiting compound</p>
+<div id="status">
+  <div>on air since 20 May 2026 · <b id="on-air"></b></div>
+  <div id="run-line" hidden>this run · <b id="this-run"></b></div>
+  <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
+  <div id="visual-line" hidden><button id="visual-switch" type="button">change visual</button> (v) · fullscreen (f)</div>
+</div>
 <script>
-  async function updateCompound() {
+  // The day of the first commit. "This run" is how long the current stream
+  // has been up; it starts again whenever the station restarts.
+  const ON_AIR_SINCE = Date.UTC(2026, 4, 20);
+  let clockOffset = 0;       // the server's clock minus this device's, in ms
+  let streamStarted = null;  // ms since the epoch, from the server
+
+  const byId = (id) => document.getElementById(id);
+  const two = (n) => String(n).padStart(2, '0');
+  function elapsed(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const days = Math.floor(s / 86400);
+    const clock = two(Math.floor(s / 3600) % 24) + ':' + two(Math.floor(s / 60) % 60) + ':' + two(s % 60);
+    return days > 0 ? days + (days === 1 ? ' day ' : ' days ') + clock : clock;
+  }
+  function tickClocks() {
+    const now = Date.now() + clockOffset;
+    byId('on-air').textContent = elapsed(now - ON_AIR_SINCE);
+    byId('run-line').hidden = streamStarted === null;
+    if (streamStarted !== null) byId('this-run').textContent = elapsed(now - streamStarted);
+  }
+  tickClocks();
+  setInterval(tickClocks, 1000);
+
+  function showVisits(count) {
+    if (typeof count !== 'number') return;
+    byId('visits').innerHTML = String(count).padStart(6, '0')
+      .split('').map((d) => '<span>' + d + '</span>').join('');
+    byId('visits-line').hidden = false;
+  }
+
+  // One request carries everything the page shows; the visual reads the
+  // compound's peaks from window.stationStats.
+  async function updateStats() {
     try {
-      const r = await fetch('/current', { cache: 'no-store' });
-      if (r.status === 204) {
-        document.getElementById('compound').textContent = 'awaiting compound';
-        return;
-      }
+      const r = await fetch('/stats', { cache: 'no-store' });
       if (!r.ok) return;
       const d = await r.json();
-      document.getElementById('compound').textContent =
-        d.name + ' — ' + d.n_peaks + ' peaks · ' + d.algorithm;
+      window.stationStats = d;
+      clockOffset = d.now * 1000 - Date.now();
+      streamStarted = typeof d.stream_started === 'number' ? d.stream_started * 1000 : null;
+      const c = d.compound;
+      byId('compound').textContent = c
+        ? c.name + ' — ' + c.n_peaks + ' peaks · ' + c.algorithm
+        : 'awaiting compound';
+      byId('listeners-line').hidden = typeof d.listeners !== 'number';
+      if (typeof d.listeners === 'number') byId('listeners').textContent = d.listeners;
+      showVisits(d.visits);
+      tickClocks();
     } catch (e) {}
   }
-  updateCompound();
-  setInterval(updateCompound, 10000);
+  updateStats();
+  setInterval(updateStats, 10000);
+
+  // Count this browser as a visit, at most once every twelve hours.
+  try {
+    const last = Number(localStorage.getItem('gs-visit') || 0);
+    if (Date.now() - last > 12 * 3600 * 1000) {
+      fetch('/visit', { method: 'POST' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d) return;
+          localStorage.setItem('gs-visit', String(Date.now()));
+          showVisits(d.visits);
+        })
+        .catch(() => {});
+    }
+  } catch (e) {}
 
   // The stream ends whenever the station or Icecast restarts. Reconnect
   // rather than leave a dead player, but only for someone who was listening.
@@ -87,220 +173,85 @@
   });
 </script>
 <script type="module">
+  // Two visuals. "bloom" needs WebGPU; "rings" runs everywhere and is what a
+  // browser without WebGPU gets. They start with the first play, because a
+  // browser only allows the audio graph they listen to after a gesture.
   const audio = document.querySelector('audio');
-  const canvas = document.getElementById('viz');
+  const visuals = {
+    bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
+    rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
+  };
   let started = false;
+  let analyser = null;
+  let current = null;
+  let handle = null;
+  let switching = false;
+
+  function remembered() {
+    try { return localStorage.getItem('gs-visual'); } catch (e) { return null; }
+  }
+
+  async function show(name) {
+    if (switching) return;
+    switching = true;
+    try {
+      if (handle) {
+        handle.stop();
+        handle = null;
+        visuals[current].canvas.style.opacity = '0';
+        current = null;
+      }
+      const visual = visuals[name];
+      const { start } = await import(visual.module);
+      handle = await start(visual.canvas, analyser, {
+        getCompound: () => (window.stationStats && window.stationStats.compound) || null,
+        onLost: (info) => {
+          console.warn('the "' + name + '" visual lost its GPU device:', info && info.message);
+          handle = null;
+          current = null;
+          visual.canvas.style.opacity = '0';
+          show('rings');
+        },
+      });
+      current = name;
+      requestAnimationFrame(() => { visual.canvas.style.opacity = '1'; });
+    } catch (e) {
+      console.warn('the "' + name + '" visual could not start:', e);
+      switching = false;
+      if (name !== 'rings') return show('rings');
+    } finally {
+      switching = false;
+    }
+  }
+
+  function switchVisual() {
+    if (!analyser || !current) return;
+    const next = current === 'bloom' ? 'rings' : 'bloom';
+    try { localStorage.setItem('gs-visual', next); } catch (e) {}
+    show(next);
+  }
 
   audio.addEventListener('play', async () => {
     if (started) return;
     started = true;
-
-    const THREE = await import('three');
-
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioCtx();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
     const source = audioCtx.createMediaElementSource(audio);
-    const analyser = audioCtx.createAnalyser();
+    analyser = audioCtx.createAnalyser();
     analyser.fftSize = 4096;
     analyser.smoothingTimeConstant = 0.7;
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      50,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      100,
-    );
-    camera.position.z = 4;
+    await show(remembered() === 'rings' || !navigator.gpu ? 'rings' : 'bloom');
+    // Only offer the switch where there is something to switch to.
+    document.getElementById('visual-line').hidden = !navigator.gpu;
+  });
 
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: true,
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-
-    const ringCount = 8;
-    const barsPerRing = 24;
-    const ringRadius = 1.4;
-    const ringDepth = 0.35;
-    const maxBarHeight = 1.3;
-    const baseScale = 0.95;
-    const tubeRadius = 0.3;
-
-    const thetaCos = new Float32Array(barsPerRing);
-    const thetaSin = new Float32Array(barsPerRing);
-    for (let i = 0; i < barsPerRing; i++) {
-      const angle = (i / barsPerRing) * Math.PI * 2;
-      thetaCos[i] = Math.cos(angle);
-      thetaSin[i] = Math.sin(angle);
-    }
-
-    const group = new THREE.Group();
-    group.scale.setScalar(baseScale);
-    scene.add(group);
-
-    const rings = [];
-    const ringGroups = [];
-    const ringValues = [];
-
-    const upY = new THREE.Vector3(0, 1, 0);
-    const outward = new THREE.Vector3();
-
-    // One box shared by all 192 bars; each bar only differs in its material
-    // and transform.
-    const barGeometry = new THREE.BoxGeometry(0.07, 1, 0.07);
-    barGeometry.translate(0, 0.5, 0);
-
-    for (let r = 0; r < ringCount; r++) {
-      const ringGroup = new THREE.Group();
-      ringGroup.position.z = -r * ringDepth;
-      group.add(ringGroup);
-      ringGroups.push(ringGroup);
-
-      const ringBars = [];
-      const fade = 1 - (r / ringCount) * 0.65;
-
-      for (let i = 0; i < barsPerRing; i++) {
-        const t = i / (barsPerRing - 1);
-        const color = new THREE.Color();
-        if (t < 0.5) color.setRGB(1 - t * 2, t * 2, 0);
-        else color.setRGB(0, 1 - (t - 0.5) * 2, (t - 0.5) * 2);
-        const bar = new THREE.Mesh(
-          barGeometry,
-          new THREE.MeshBasicMaterial({
-            color,
-            transparent: true,
-            opacity: 0.5 * fade,
-          }),
-        );
-
-        bar.scale.y = 0.001;
-        ringGroup.add(bar);
-        ringBars.push(bar);
-      }
-      rings.push(ringBars);
-      ringValues.push(new Float32Array(barsPerRing));
-    }
-
-    const freqData = new Uint8Array(analyser.frequencyBinCount);
-    const minBin = 2;
-    const maxBin = Math.min(freqData.length, 850);
-    const linearCount = 10;
-    const linearEnd = minBin + linearCount;
-    const barBinStart = new Int32Array(barsPerRing + 1);
-    for (let i = 0; i <= linearCount; i++) {
-      barBinStart[i] = minBin + i;
-    }
-    const logMin = Math.log(linearEnd);
-    const logMax = Math.log(maxBin);
-    for (let i = linearCount + 1; i <= barsPerRing; i++) {
-      const t = (i - linearCount) / (barsPerRing - linearCount);
-      const ideal = Math.floor(Math.exp(logMin + (logMax - logMin) * t));
-      barBinStart[i] = Math.max(barBinStart[i - 1] + 1, ideal);
-    }
-
-    const targetValues = new Float32Array(barsPerRing);
-
-    const fadeScene = new THREE.Scene();
-    const fadeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const fadeQuad = new THREE.Mesh(
-      new THREE.PlaneGeometry(2, 2),
-      new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.07,
-        depthWrite: false,
-        depthTest: false,
-      }),
-    );
-    fadeScene.add(fadeQuad);
-    renderer.autoClear = false;
-
-    let shiftAccum = 0;
-
-    function animate() {
-      requestAnimationFrame(animate);
-      analyser.getByteFrequencyData(freqData);
-
-      for (let i = 0; i < barsPerRing; i++) {
-        const b0 = barBinStart[i];
-        const b1 = barBinStart[i + 1];
-        let sum = 0;
-        for (let j = b0; j < b1; j++) sum += freqData[j];
-        const avg = sum / (b1 - b0) / 255;
-        targetValues[i] = Math.log(avg + 1) / Math.log(2);
-      }
-
-      const ring0 = ringValues[0];
-      for (let i = 0; i < barsPerRing; i++) {
-        if (targetValues[i] > ring0[i]) ring0[i] = targetValues[i];
-        else ring0[i] += (targetValues[i] - ring0[i]) * 0.1;
-      }
-
-      shiftAccum++;
-      if (shiftAccum >= 5) {
-        shiftAccum = 0;
-        for (let r = ringCount - 1; r > 0; r--) {
-          const dst = ringValues[r];
-          const src = ringValues[r - 1];
-          for (let i = 0; i < barsPerRing; i++) dst[i] = src[i];
-        }
-      }
-
-      const tNow = performance.now();
-
-      for (let r = 0; r < ringCount; r++) {
-        const vals = ringValues[r];
-        const ringBars = rings[r];
-        const phiDir = r % 2 === 0 ? 1 : -1;
-        const phi = tNow * (0.00035 + r * 0.00006) * phiDir;
-        const cosPh = Math.cos(phi);
-        const sinPh = Math.sin(phi);
-        const Rcp = ringRadius + tubeRadius * cosPh;
-        const zr = tubeRadius * sinPh;
-        for (let i = 0; i < barsPerRing; i++) {
-          const cosTh = thetaCos[i];
-          const sinTh = thetaSin[i];
-          ringBars[i].position.set(Rcp * cosTh, Rcp * sinTh, zr);
-          outward.set(cosPh * cosTh, cosPh * sinTh, sinPh);
-          ringBars[i].quaternion.setFromUnitVectors(upY, outward);
-          ringBars[i].scale.y = Math.max(0.001, vals[i] * maxBarHeight);
-        }
-      }
-
-      for (let r = 0; r < ringCount; r++) {
-        const dirSign = r % 2 === 0 ? 1 : -1;
-        ringGroups[r].rotation.z = tNow * (0.00006 + r * 0.000045) * dirSign;
-      }
-
-      const orbitAngle = tNow * 0.00009;
-      const elevation = Math.sin(tNow * 0.000055) * 0.65;
-      const orbitRadius = 5;
-      const tunnelCenterZ = -((ringCount - 1) * ringDepth) / 2;
-      const cosEl = Math.cos(elevation);
-      camera.position.x = Math.sin(orbitAngle) * orbitRadius * cosEl;
-      camera.position.z = tunnelCenterZ + Math.cos(orbitAngle) * orbitRadius * cosEl;
-      camera.position.y = Math.sin(elevation) * orbitRadius;
-      camera.lookAt(0, 0, tunnelCenterZ);
-
-      renderer.clearDepth();
-      renderer.render(fadeScene, fadeCamera);
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight, false);
-    });
-
-    requestAnimationFrame(() => { canvas.style.opacity = '1'; });
+  document.getElementById('visual-switch').addEventListener('click', switchVisual);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'v' && navigator.gpu) switchVisual();
   });
 </script>
 </body>

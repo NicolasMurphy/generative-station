@@ -87,13 +87,39 @@ script=$(sed -n 's/.*"three": "\([^"]*\)".*/\1/p' web/index.html)
 [ "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$site/current")" = "204" ] \
     || fail "/current is not empty before any compound"
 
+echo "== the visit counter"
+first=$(curl -fsS -m 10 -X POST "$site/visit") || fail "/visit did not answer"
+again=$(curl -fsS -m 10 -X POST "$site/visit") || fail "/visit did not answer twice"
+[ "$first" = "$again" ] || fail "a second visit from the same address was counted ($first then $again)"
+case "$(curl -fsS -m 10 "$site/stats")" in
+    *'"visits":1'*) ;;
+    *) fail "/stats does not show the visit" ;;
+esac
+docker compose restart picker >/dev/null 2>&1
+i=0
+kept=""
+while [ "$i" -lt 15 ]; do
+    case "$(curl -s -m 5 "$site/stats" || true)" in
+        *'"visits":1'*) kept=1 ;;
+    esac
+    if [ -n "$kept" ]; then
+        break
+    fi
+    i=$((i + 1))
+    sleep 2
+done
+[ -n "$kept" ] || fail "the visit count did not survive a picker restart"
+echo "   counted once per address, and kept across a picker restart"
+
 echo "== the same page straight from Icecast (local runs use port 8000)"
 curl -fsS -m 10 http://127.0.0.1:8000/ | grep -q '<title>' || fail "Icecast does not serve the page at /"
-direct=$(curl -s -o /dev/null -m 10 -w '%{content_type}' "http://127.0.0.1:8000$script" || true)
-case "$direct" in
-    *javascript*) ;;
-    *) fail "Icecast serves $script as '$direct', not JavaScript" ;;
-esac
+for path in "$script" /viz-bloom.js /viz-rings.js; do
+    direct=$(curl -s -o /dev/null -m 10 -w '%{content_type}' "http://127.0.0.1:8000$path" || true)
+    case "$direct" in
+        *javascript*) ;;
+        *) fail "Icecast serves $path as '$direct', not JavaScript" ;;
+    esac
+done
 
 echo "== posting a compound to the webhook"
 answer=$(curl -s -m 10 "$site/webhook" \

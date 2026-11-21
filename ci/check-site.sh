@@ -25,11 +25,13 @@ esac
 
 script=$(printf '%s\n' "$page" | sed -n 's/.*"three": "\([^"]*\)".*/\1/p')
 [ -n "$script" ] || fail "the page does not name its visualiser script"
-type=$(curl -s -o /dev/null -m 60 -w '%{content_type}' "$site$script" || true)
-case "$type" in
-    *javascript*) ;;
-    *) fail "$script is served as '$type', not JavaScript" ;;
-esac
+for path in "$script" /viz-bloom.js /viz-rings.js; do
+    type=$(curl -s -o /dev/null -m 60 -w '%{content_type}' "$site$path" || true)
+    case "$type" in
+        *javascript*) ;;
+        *) fail "$path is served as '$type', not JavaScript" ;;
+    esac
+done
 
 # 128 kbit/s is 16 kB a second, plus Icecast's burst on connect.
 bytes=$(curl -s -m 5 "$site/stream" 2>/dev/null | wc -c) || true
@@ -41,6 +43,24 @@ case "$current" in
     *) fail "/current answered $current" ;;
 esac
 
+# The picker asks Icecast about the stream every few seconds, so right after
+# a restart it may not know yet; give it a moment.
+tries=0
+while :; do
+    stats=$(curl -fsS -m 20 "$site/stats") || fail "/stats did not answer"
+    case "$stats" in
+        *'"visits":'*'"listeners":'* | *'"listeners":'*'"visits":'*) ;;
+        *) fail "/stats is missing its counters: $stats" ;;
+    esac
+    case "$stats" in
+        *'"stream_started":null'*) ;;
+        *) break ;;
+    esac
+    tries=$((tries + 1))
+    [ "$tries" -lt 5 ] || fail "/stats does not know when the stream started"
+    sleep 3
+done
+
 for path in /admin/ /status-json.xsl /status.xsl; do
     code=$(status "$path")
     [ "$code" = "404" ] || fail "Icecast's $path is reachable ($code)"
@@ -49,4 +69,4 @@ done
 code=$(curl -s -o /dev/null -m 20 -w '%{http_code}' -X POST "$site/webhook" || true)
 [ "$code" = "401" ] || fail "the webhook answered $code to a request with no secret"
 
-echo "site ok ($site): page and script served, stream flowing ($bytes bytes in 5 s), /current $current, Icecast's pages hidden, webhook needs the secret"
+echo "site ok ($site): page and script served, stream flowing ($bytes bytes in 5 s), /current $current, /stats live, Icecast's pages hidden, webhook needs the secret"
