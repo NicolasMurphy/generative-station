@@ -27,6 +27,10 @@ it calls the picker's `/health`, and it checks that all four containers are
 running. A piece that fails to load therefore fails the deploy instead of
 streaming silence unnoticed.
 
+Last, the deploy job runs `ci/check-site.sh` against the live site from the
+CI runner: the page, its script and five seconds of the stream must load over
+HTTPS, and Icecast's own pages must not be reachable.
+
 Secrets (`.env` with Icecast passwords and the webhook secret) live only on
 the server and are never touched by the workflow.
 
@@ -78,8 +82,9 @@ The workflows pin two things about the SSH connection:
 The **Status** workflow (Actions tab, "Run workflow") prints a read-only
 report: the deployed commit, host load, memory and disk, container state and
 CPU, and what the station has logged since it started (xruns, late bundles,
-server failures, errors, compounds, percussion windows). The repository is
-public and so are these logs, so it prints no environment or access logs.
+server failures, errors, compounds, percussion windows), followed by the same
+outside check of the live site. The repository is public and so are these
+logs, so it prints no environment or access logs.
 
 Icecast's status and admin pages are not on the public site. To see them,
 forward its local port and open `http://localhost:8000/admin/`:
