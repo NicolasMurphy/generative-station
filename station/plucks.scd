@@ -35,7 +35,7 @@
                     // amp scaled by the compound's normalized amplitude — most
                     // spectra have a few prominent peaks plus a noise floor, so
                     // total energy stays reasonable without explicit N-normalization.
-                    var transpose = rrand(1.0, 2.0);
+                    var transpose = rrand(1.0, 2.0) * ~register.(\plucks);
                     var ampScale = rrand(0.012, 0.03);
                     var atk = rrand(0.003, 0.01);
                     var rel = rrand(0.15, 0.4);
@@ -52,7 +52,7 @@
                 } {
                     // No compound loaded — original random pluck behavior.
                     Synth(\pluck, [
-                        \freq, exprand(1000.0, 3000.0),
+                        \freq, exprand(1000.0, 3000.0) * ~register.(\plucks),
                         \amp,  rrand(0.012, 0.03),
                         \atk,  rrand(0.003, 0.01),
                         \rel,  rrand(0.15, 0.4),
@@ -61,7 +61,7 @@
                     ], ~voiceGroup);
                 };
             });
-            rrand(10.0, 30.0).wait;
+            (rrand(10.0, 30.0) * ~pace.(\plucks)).wait;
         }
     }).play;
 };

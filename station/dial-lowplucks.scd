@@ -26,6 +26,10 @@ s.waitForBoot({
         };
     };
 
+    // No slow drift here: lowPlucks at their written pitches and pace.
+    ~register = { 1 };
+    ~pace = { 1 };
+
     // Same helper as piece.scd.
     ~place = { |sig, pan| [sig * (1 - pan.max(0)), sig * (1 + pan.min(0))] };
 

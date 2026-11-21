@@ -82,7 +82,7 @@
                         // Spectrum path: each hit is the WHOLE spectrum played as a
                         // chord, transposed so its base lands on a random pitch ->
                         // 8-13 random chords. (Load a compound via the webhook.)
-                        var transpose = rrand(0.5, 1.5);
+                        var transpose = rrand(0.5, 1.5) * ~register.(\lowPlucks);
                         ~currentCompound.freqs.do { |freq, i|
                             spawnNote.(
                                 freq * transpose,
@@ -92,7 +92,11 @@
                         };
                     } {
                         // Fallback path: a single random low note per hit.
-                        spawnNote.(exprand(200.0, 1000.0), rrand(0.03, 0.06), rel);
+                        spawnNote.(
+                            exprand(200.0, 1000.0) * ~register.(\lowPlucks),
+                            rrand(0.03, 0.06),
+                            rel
+                        );
                     };
                 });
                 ((burstDur / nNotes) * rrand(0.6, 1.4)).wait;

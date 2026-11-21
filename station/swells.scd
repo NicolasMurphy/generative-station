@@ -50,7 +50,7 @@
                     // Chord mode: one swell per compound peak, all sharing the same
                     // long envelope. Transpose range biases lower than plucks since
                     // swells naturally sit in 200-1000 Hz territory.
-                    var transpose = rrand(0.5, 1.5);
+                    var transpose = rrand(0.5, 1.5) * ~register.(\swells);
                     var ampScale = rrand(0.02, 0.05);
                     var atk = rrand(2.0, 6.0);
                     var rel = rrand(3.0, 8.0);
@@ -67,7 +67,7 @@
                 } {
                     // No compound loaded — original random swell behavior.
                     Synth(\swellSine, [
-                        \freq, exprand(200.0, 1000.0),
+                        \freq, exprand(200.0, 1000.0) * ~register.(\swells),
                         \amp,  rrand(0.02, 0.05),
                         \atk,  rrand(2.0, 6.0),
                         \rel,  rrand(3.0, 8.0),
@@ -76,7 +76,7 @@
                     ], ~voiceGroup);
                 };
             });
-            rrand(waitMin, waitMax).wait;
+            (rrand(waitMin, waitMax) * ~pace.(\swells)).wait;
         }
     }).play;
 };

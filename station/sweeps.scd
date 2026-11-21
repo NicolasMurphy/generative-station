@@ -55,7 +55,7 @@
                 ], ~voiceGroup);
             });
 
-            rrand(60.0, 300.0).wait;
+            (rrand(60.0, 300.0) * ~pace.(\sweeps)).wait;
         }
     }).play;
 };

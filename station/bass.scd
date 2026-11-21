@@ -40,7 +40,7 @@
                 ], ~voiceGroup);
             });
 
-            rrand(180.0, 420.0).wait;
+            (rrand(180.0, 420.0) * ~pace.(\bass)).wait;
         }
     }).play;
 };

@@ -49,6 +49,37 @@ s.waitForBoot({
         };
     };
 
+    // Slow drift. Over hours the pitched voices move a little lower or
+    // higher, and every voice gets a little rarer or denser, each on its own
+    // cycle, so the station three hours from now is not the station now.
+    // Nothing new is played: the voices read these when they pick a pitch or
+    // a wait. Each value wanders between -1 and 1 as the sum of two sines
+    // with unrelated periods, the longer one given below in minutes.
+    ~wanderOffset = rrand(0.0, 10000.0);  // a different place in the cycles on every start
+    ~wander = { |minutes, phase|
+        var t = (Main.elapsedTime / 60) + ~wanderOffset;
+        (sin((2pi * t / minutes) + phase) * 0.65)
+            + (sin((2pi * t / (minutes * 0.382)) + (phase * 1.7)) * 0.35)
+    };
+    // voice -> [cycle in minutes, how far it moves in octaves either way]
+    ~registers = (
+        swells: [173, 0.35], plucks: [131, 0.3], lowPlucks: [149, 0.25]
+    );
+    // voice -> [cycle in minutes, shortest and longest multiple of its waits]
+    ~paces = (
+        swells: [97, 0.8, 1.5], plucks: [61, 0.6, 1.6], clicks: [113, 0.6, 1.5],
+        sweeps: [71, 0.6, 1.6], bass: [191, 0.7, 1.5]
+    );
+    // What a voice multiplies its frequencies by, and its waits by.
+    ~register = { |voice|
+        var r = ~registers[voice];
+        2 ** (~wander.(r[0], voice.hash % 97) * r[1])
+    };
+    ~pace = { |voice|
+        var p = ~paces[voice];
+        ~wander.(p[0], (voice.hash % 89) + 40).linexp(-1, 1, p[1], p[2])
+    };
+
     // Places a mono signal in the stereo field without making it louder:
     // the side it moves away from is turned down, the other is left alone.
     // The pitched voices used to be identical in both channels.
@@ -167,6 +198,21 @@ s.waitForBoot({
             Tdef(\lowPluckSpawner).stop;
             ~spawn.(\switch, { ~lowPluckFxSynth.set(\fb, 0, \fbLag, 2) });
             Tdef(\swellSpawner).play;
+        }
+    }).play;
+
+    // Where the drift is, for the log, every half hour.
+    Tdef(\weatherReport, {
+        loop {
+            ("[weather] register: "
+                ++ ~registers.keys.asArray.sort.collect({ |v|
+                    v ++ " x" ++ ~register.(v).round(0.01)
+                }).join(", ")
+                ++ " | waits: "
+                ++ ~paces.keys.asArray.sort.collect({ |v|
+                    v ++ " x" ++ ~pace.(v).round(0.01)
+                }).join(", ")).postln;
+            1800.wait;
         }
     }).play;
 
