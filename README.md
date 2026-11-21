@@ -18,7 +18,7 @@ Seven voice elements (swells, lowPlucks, plucks, clicks, sweeps, bass, percussio
 - **Percussion** (128 bpm) is silent for 10–20 minutes at a time, then plays for a 5–10 minute window.
 - **Plucks, clicks, sweeps and bass** come and go on their own timers.
 
-Everything is summed through a master limiter before it reaches the encoder.
+The percussion's kick ducks the other voices through a sidechain, and everything is summed through a master limiter before it reaches the encoder.
 
 ### Mass Spectrum to Audio Converter Integration
 
@@ -32,8 +32,8 @@ When a compound is generated on [mass-spectrum-to-audio-converter](https://githu
 - **Sidecar**: Python, Flask, python-osc
 - **Streaming**: ffmpeg → Icecast (AAC)
 - **Visualization**: Three.js
-- **Reverse proxy**: Caddy (TLS, HTTP/3)
-- **Deployment**: Docker hosted on Hetzner VPS
+- **Web server and reverse proxy**: Caddy (TLS, HTTP/3) serves the page and proxies the stream and the webhook
+- **Deployment**: Docker hosted on Hetzner VPS, tested and deployed by GitHub Actions
 
 ---
 
@@ -44,10 +44,20 @@ cp .env.example .env   # then set the passwords and the webhook secret
 docker compose up
 ```
 
-`http://localhost:8000`.
+`http://localhost:8000` is Icecast directly: the page and the stream.
 
-To use the webhook locally, set `STATION_SITE=http://localhost` in `.env` so Caddy serves plain HTTP instead of requesting a certificate for the production domain. `dev-commands.md` has an example request.
+To run the whole site locally, webhook included, set `STATION_SITE=http://localhost` in `.env` so Caddy serves plain HTTP at `http://localhost` instead of requesting a certificate for the production domain. `dev-commands.md` has an example webhook request.
+
+## Tests
+
+```sh
+python -m pytest picker   # picker unit tests (needs picker/requirements.txt and pytest)
+sh ci/test-deploy.sh      # what deploy.sh rebuilds and restarts, against a fake docker
+sh ci/smoke.sh            # builds and starts everything in Docker and checks the stream end to end
+```
+
+CI runs all three on every push.
 
 ## Deployment
 
-Pushes to `main` deploy automatically. See [DEPLOY.md](DEPLOY.md).
+Pushes to `main` are deployed automatically once the tests pass. See [DEPLOY.md](DEPLOY.md).
