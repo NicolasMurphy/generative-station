@@ -103,6 +103,7 @@ s.waitForBoot({
     // mix and each one still costs a synth per event.
     ~maxPeaks = 32;
     ~peakFloor = 0.01;
+    ~maxChordPower = 2.5;
 
     // Listen for compound updates from the picker sidecar (port 57120).
     // Message: [name, accession, algorithm, nPeaks, freq1..N, amp1..N]
@@ -115,7 +116,7 @@ s.waitForBoot({
         var n = msg[4].asInteger;
         var freqs = msg[(5..(4+n))];
         var amps = msg[((5+n)..(4+(2*n)))];
-        var floor, keep;
+        var floor, keep, power;
         if((n > 0) and: { msg != ~lastCompoundMsg }) {
             ~lastCompoundMsg = msg;
             floor = amps.maxItem * ~peakFloor;
@@ -124,12 +125,24 @@ s.waitForBoot({
                 // strongest first, then back into their original order
                 keep = keep.sort { |a, b| amps[a] > amps[b] }.keep(~maxPeaks).sort;
             };
+            freqs = freqs[keep];
+            amps = amps[keep];
+            // A chord is one sine per peak, so its power is the sum of the
+            // squared amplitudes. Rendered alone, the swells play 2 dB above
+            // single notes for a sparse spectrum (power 1.1), 4 dB for a
+            // typical one (2.4) and 11 dB for one with 32 strong peaks (14).
+            // Spectra up to the typical level are left exactly as they are;
+            // denser ones are scaled down to it.
+            power = amps.squared.sum;
+            if(power > ~maxChordPower) {
+                amps = amps * (~maxChordPower / power).sqrt;
+            };
             ~currentCompound = (
                 name: name,
                 accession: accession,
                 algorithm: algorithm,
-                freqs: freqs[keep],
-                amps: amps[keep]
+                freqs: freqs,
+                amps: amps
             );
             if(~updatePercussion.notNil) {
                 ~updatePercussion.();
