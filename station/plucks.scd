@@ -64,4 +64,48 @@
             (rrand(10.0, 30.0) * ~pace.(\plucks)).wait;
         }
     }).play;
+
+    // A rare event, once every hour or three: the spectrum played as a run
+    // of plucks from its lowest peak to its highest, crossing from left to
+    // right (a harmonic series when no compound is loaded). The same pluck
+    // through the same delay as always, only in order for once.
+    Tdef(\pluckCascade, {
+        loop {
+            var freqs = [], amps = [];
+            (rrand(60.0, 180.0) * 60).wait;
+            try {
+                if(~currentCompound.freqs.notNil and: { ~currentCompound.freqs.notEmpty }) {
+                    // the sixteen strongest peaks at most, low to high
+                    var keep = ~currentCompound.amps.order.reverse.keep(16);
+                    keep = keep.sort { |a, b| ~currentCompound.freqs[a] < ~currentCompound.freqs[b] };
+                    freqs = ~currentCompound.freqs[keep] * rrand(1.0, 2.0) * ~register.(\plucks);
+                    // quiet peaks are lifted, or most of the run would be inaudible
+                    amps = ~currentCompound.amps[keep] ** 0.3;
+                } {
+                    freqs = exprand(110.0, 220.0) * ~register.(\plucks) * (2..13);
+                    amps = 1 ! 12;
+                };
+            } { |err|
+                ("[plucks] cascade skipped: " ++ err.errorString).postln;
+            };
+            if(freqs.notEmpty) {
+                var gap = rrand(0.09, 0.16);
+                var level = rrand(0.02, 0.032);
+                ("[plucks] cascade of " ++ freqs.size ++ " notes").postln;
+                freqs.do { |freq, i|
+                    ~spawn.(\plucks, {
+                        Synth(\pluck, [
+                            \freq, freq,
+                            \amp,  level * amps[i],
+                            \atk,  0.004,
+                            \rel,  rrand(0.2, 0.4),
+                            \pan,  i.linlin(0, (freqs.size - 1).max(1), -0.8, 0.8),
+                            \out,  pluckFxBus
+                        ], ~voiceGroup);
+                    });
+                    (gap * (0.97 ** i)).wait;  // gathering a little speed
+                };
+            };
+        }
+    }).play;
 };
