@@ -210,6 +210,7 @@
       const { start } = await import(visual.module);
       handle = await start(visual.canvas, analyser, {
         getCompound: () => (window.stationStats && window.stationStats.compound) || null,
+        isPlaying: () => !audio.paused && !audio.ended,
         onLost: (info) => {
           console.warn('the "' + name + '" visual lost its GPU device:', info && info.message);
           handle = null;

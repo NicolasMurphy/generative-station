@@ -17,8 +17,13 @@
 // and transposing turns the chord round the hub: each fan of rays is the
 // hub's figure, turned.
 //
-// start(canvas, analyser, { getCompound, onLost }) draws until the returned
-// stop() is called.
+// Some browsers give a page no sound to look at (iOS, for a live stream).
+// There the picture is not what is being heard but the kind of thing the
+// station plays: swells and plucks made here by the station's own rules from
+// the same compound, at their own times.
+//
+// start(canvas, analyser, { getCompound, isPlaying, onLost }) draws until
+// the returned stop() is called.
 
 const BASE_HZ = 110; // the note at the bottom of the picture, in the lowest octave drawn
 const OCTAVES = 7; // drawn as notes: 110 Hz to 14 kHz
@@ -30,6 +35,8 @@ const SPEED = 0.085; // outward speed, in half-heights of the picture a second
 const HUB = 0.16; // radius of the hub, same unit
 const MAX_PEAKS = 32; // the station voices at most this many peaks too
 const PEAK_FLOOR = 0.01;
+const MIN_DB = -95; // the analyser's range: what it reports as 0 and as 1
+const MAX_DB = -25;
 const QUIET = 0.3; // analyser level (0..1) below which nothing is drawn
 const GLOW = 0.4; // brightness of the glow round a note, against the note's own line
 const LINE = 0.75; // half-width of a note's line, in steps
@@ -177,7 +184,9 @@ function compile(gl, type, source) {
   return shader;
 }
 
-export async function start(canvas, analyser, { getCompound = () => null, onLost = () => {} } = {}) {
+export async function start(canvas, analyser, {
+  getCompound = () => null, isPlaying = () => false, onLost = () => {},
+} = {}) {
   const gl = canvas.getContext('webgl', { alpha: false, antialias: false });
   if (!gl) throw new Error('WebGL is not available in this browser');
   if (gl.isContextLost()) throw new Error('the WebGL context is lost');
@@ -244,8 +253,8 @@ export async function start(canvas, analyser, { getCompound = () => null, onLost
       const node = audio.createAnalyser();
       node.fftSize = 8192; // tells notes a semitone apart down to about 400 Hz
       node.smoothingTimeConstant = 0.35; // the picture keeps the history itself
-      node.minDecibels = -95;
-      node.maxDecibels = -25;
+      node.minDecibels = MIN_DB;
+      node.maxDecibels = MAX_DB;
       splitter.connect(node, channel);
       sides.push({
         node,
@@ -288,6 +297,104 @@ export async function start(canvas, analyser, { getCompound = () => null, onLost
   let silentFor = 0;
   let rightSilentFor = 0;
 
+  // Adds a note to what is heard this frame: a line "width" steps wide at
+  // the note's place in the octave, in its octave's colour.
+  function drawNote(base, hz, lit, width) {
+    const octaves = Math.log2(hz / BASE_HZ);
+    const colour = palette(octaves / OCTAVES);
+    const x = (octaves - Math.floor(octaves)) * BINS - 0.5;
+    const reach = Math.ceil(width * 2.5);
+    for (let k = Math.floor(x) - reach + 1; k <= Math.floor(x) + reach; k++) {
+      const weight = lit * Math.exp(-((k - x) * (k - x)) / (2 * width * width));
+      const to = base + (((k % BINS) + BINS) % BINS) * 3; // the octave closes on itself
+      now[to] += colour[0] * weight;
+      now[to + 1] += colour[1] * weight;
+      now[to + 2] += colour[2] * weight;
+    }
+  }
+
+  // ---- where the page cannot hear the stream ----
+
+  // The pitched voices as piece.scd plays them, without the sound: every so
+  // often a swell (the compound's peaks as a chord, anywhere from an octave
+  // down to a fifth up, rising and falling over several seconds) and, more
+  // rarely, a pluck of the same chord with its echoes. With no compound,
+  // single notes in the ranges the station uses.
+  const between = (lo, hi) => lo + Math.random() * (hi - lo);
+  const somewhere = (lo, hi) => lo * Math.pow(hi / lo, Math.random());
+  let voiced = []; // the compound's voiced peaks, set by followCompound
+  let notes = [];
+  let nextSwell = 0;
+  let nextPluck = between(4, 12);
+  let imagined = 0; // seconds of this
+
+  function chord(transpose, level, shape) {
+    let peaks = voiced;
+    if (!peaks.length) return [{ hz: shape.alone, amp: level, pan: between(-0.7, 0.7), ...shape }];
+    // as the station does, a dense chord is held to the level of a typical one
+    const power = peaks.reduce((sum, p) => sum + p.a * p.a, 0);
+    const scale = power > 2.5 ? Math.sqrt(2.5 / power) : 1;
+    return peaks.map((p) => ({
+      hz: p.f * transpose, amp: level * p.a * scale, pan: between(-0.7, 0.7), ...shape,
+    }));
+  }
+
+  // How loud a note is "age" seconds after it began, 0..1.
+  function envelope(note, age) {
+    if (age < 0) return 0;
+    if (note.echo) {
+      // a pluck, and the delay line repeating it a little quieter each time
+      let loudest = 0;
+      for (let n = 0, gain = 1; n < 36 && n * note.echo <= age; n++, gain *= 0.93) {
+        const since = age - n * note.echo;
+        const hit = since < note.rise ? since / note.rise : Math.exp((-4.5 * (since - note.rise)) / note.fall);
+        if (hit * gain > loudest) loudest = hit * gain;
+      }
+      return loudest;
+    }
+    if (age < note.rise) return Math.pow(Math.sin((Math.PI / 2) * (age / note.rise)), 2);
+    if (age < note.rise + note.fall) return Math.pow(Math.cos((Math.PI / 2) * ((age - note.rise) / note.fall)), 2);
+    return 0;
+  }
+
+  function imagine(dt, loud) {
+    imagined += dt;
+    if (imagined >= nextSwell) {
+      const shape = { began: imagined, rise: between(2, 6), fall: between(3, 8), alone: somewhere(200, 1000) };
+      notes.push(...chord(between(0.5, 1.5), between(0.02, 0.05), shape));
+      // swells come thick and thin over four minutes
+      const thin = 0.5 - 0.5 * Math.sin((imagined * 2 * Math.PI) / 240);
+      nextSwell = imagined + between(0.3 + thin * 2.5, 0.8 + thin * 6);
+    }
+    if (imagined >= nextPluck) {
+      const shape = {
+        began: imagined, rise: between(0.003, 0.01), fall: between(0.15, 0.4),
+        echo: between(0.05, 0.12), alone: somewhere(1000, 3000),
+      };
+      notes.push(...chord(between(1, 2), between(0.012, 0.03), shape));
+      nextPluck = imagined + between(10, 30);
+    }
+    notes = notes.filter((note) => imagined - note.began < (note.echo ? note.echo * 36 + note.fall : note.rise + note.fall));
+    if (notes.length > 600) notes = notes.slice(-600);
+    for (const note of notes) {
+      const amp = note.amp * envelope(note, imagined - note.began);
+      for (let channel = 0; channel < 2; channel++) {
+        // placed as the station places it: the far side is turned down
+        const heard = amp * (channel === 0 ? 1 - Math.max(note.pan, 0) : 1 + Math.min(note.pan, 0));
+        if (heard < 1e-5) continue;
+        // roughly what the analyser would report for a sine this loud
+        const lit = brightness(255 * Math.min(1, (20 * Math.log10(heard) - 13 - MIN_DB) / (MAX_DB - MIN_DB)));
+        if (lit <= 0) continue;
+        drawNote(channel * BINS * 3, note.hz, lit, LINE);
+        drawNote(channel * BINS * 3, note.hz, lit * GLOW * 0.5, LINE * 6);
+        loud[channel] += lit * 0.04;
+      }
+    }
+  }
+
+  let heardEver = false; // has the analyser ever reported anything
+  let deafFor = 0; // seconds the player has been playing with nothing to look at
+
   function listen(time, dt) {
     const loud = [0, 0];
     now.fill(0);
@@ -329,16 +436,7 @@ export async function start(canvas, analyser, { getCompound = () => null, onLost
         const offset = (0.5 * (before - after)) / (before - 2 * here + after);
         const lit = brightness(here - 0.25 * (before - after) * offset);
         if (lit <= 0) continue;
-        const octaves = Math.log2(((i + offset) * binHz) / BASE_HZ);
-        const colour = palette(octaves / OCTAVES);
-        const x = (octaves - Math.floor(octaves)) * BINS - 0.5;
-        for (let k = Math.floor(x) - 1; k <= Math.floor(x) + 2; k++) {
-          const weight = lit * Math.exp(-((k - x) * (k - x)) / (2 * LINE * LINE));
-          const to = base + (((k % BINS) + BINS) % BINS) * 3; // the octave closes on itself
-          now[to] += colour[0] * weight;
-          now[to + 1] += colour[1] * weight;
-          now[to + 2] += colour[2] * weight;
-        }
+        drawNote(base, (i + offset) * binHz, lit, LINE);
       }
       // Below the lowest octave the analyser cannot tell one note from the
       // next: what is down there goes out as a circle, all the way round.
@@ -363,15 +461,24 @@ export async function start(canvas, analyser, { getCompound = () => null, onLost
       now.copyWithin(BINS * 3, 0, BINS * 3);
       loud[1] = loud[0];
     }
+    // The player is playing and the analyser has never reported a thing:
+    // this browser gives the page no sound to look at. A browser that has
+    // been heard once is never doubted, however quiet the stream gets.
+    if (loud[0] + loud[1] > 0) heardEver = true;
+    deafFor = !heardEver && isPlaying() ? deafFor + dt : 0;
+    if (deafFor > 3) {
+      imagine(dt, loud);
+    } else {
+      notes = [];
+    }
     for (let i = 0; i < now.length; i++) {
       const value = Math.min(255, Math.round(now[i] * 255));
       if (value > moment[i]) moment[i] = value;
     }
     silentFor = loud[0] + loud[1] > 0 ? 0 : silentFor + dt;
     for (let channel = 0; channel < 2; channel++) {
-      // No analyser data (iOS gives none for a live stream, and a paused
-      // player gives silence): nothing leaves the hub, since nothing was
-      // heard, but the hub itself keeps breathing.
+      // Nothing to show (a paused player gives silence): nothing leaves
+      // the hub, but the hub itself keeps breathing.
       const target = silentFor > 2
         ? 0.2 + 0.12 * Math.sin(time * 0.5 + channel * 1.3)
         : Math.min(1, loud[channel] * 2.2);
@@ -394,6 +501,7 @@ export async function start(canvas, analyser, { getCompound = () => null, onLost
     if (key === shownKey || !running) return;
     shownKey = key;
     shownSince = clock;
+    voiced = voicedPeaks(compound);
     const { sticks, tints, count } = describeSticks(compound);
     gl.uniform2fv(at.sticks, sticks);
     gl.uniform3fv(at.tints, tints);
