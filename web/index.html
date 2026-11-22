@@ -181,7 +181,9 @@
   const audio = document.querySelector('audio');
   const visuals = {
     bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
-    ripples: { canvas: document.getElementById('viz-ripples'), module: '/viz-ripples.js' },
+    // The number is the file's BUILD: a browser holding an older copy of the
+    // file fetches this one instead of using what it has.
+    ripples: { canvas: document.getElementById('viz-ripples'), module: '/viz-ripples.js?v=3' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
   // The order the switch steps through.

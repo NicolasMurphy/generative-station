@@ -37,6 +37,7 @@ const MAX_PEAKS = 32; // the station voices at most this many peaks too
 const PEAK_FLOOR = 0.01;
 const MIN_DB = -95; // the analyser's range: what it reports as 0 and as 1
 const MAX_DB = -25;
+const BUILD = 3; // shown by ?debug, to tell which copy of this file a browser is running
 const QUIET = 0.3; // analyser level (0..1) below which nothing is drawn
 const GLOW = 0.4; // brightness of the glow round a note, against the note's own line
 const LINE = 0.75; // half-width of a note's line, in steps
@@ -185,8 +186,14 @@ function compile(gl, type, source) {
 }
 
 export async function start(canvas, analyser, {
-  getCompound = () => null, isPlaying = () => false, onLost = () => {},
+  getCompound = () => null, isPlaying = null, onLost = () => {},
 } = {}) {
+  // Is the player playing? Asked of the page's player itself when the page
+  // does not say, so an older copy of the page still gets an answer.
+  const playing = isPlaying || (() => {
+    const player = document.querySelector('audio');
+    return !!player && !player.paused && !player.ended;
+  });
   const gl = canvas.getContext('webgl', { alpha: false, antialias: false });
   if (!gl) throw new Error('WebGL is not available in this browser');
   if (gl.isContextLost()) throw new Error('the WebGL context is lost');
@@ -392,15 +399,18 @@ export async function start(canvas, analyser, {
     }
   }
 
-  let heardEver = false; // has the analyser ever reported anything
+  let heardEver = false; // has the analyser ever reported anything loud enough to draw
   let deafFor = 0; // seconds the player has been playing with nothing to look at
+  let strongest = 0; // the highest level the analysers report this frame, 0..255
 
   function listen(time, dt) {
     const loud = [0, 0];
     now.fill(0);
+    strongest = 0;
     sides.forEach((side, channel) => {
       side.node.getByteFrequencyData(side.spectrum);
       const spectrum = side.spectrum;
+      for (let i = lowFirst; i <= noteLast; i++) if (spectrum[i] > strongest) strongest = spectrum[i];
       const base = channel * BINS * 3;
       let sum = 0;
       for (let n = 0; n < BINS * OCTAVES; n++) {
@@ -461,11 +471,12 @@ export async function start(canvas, analyser, {
       now.copyWithin(BINS * 3, 0, BINS * 3);
       loud[1] = loud[0];
     }
-    // The player is playing and the analyser has never reported a thing:
-    // this browser gives the page no sound to look at. A browser that has
-    // been heard once is never doubted, however quiet the stream gets.
-    if (loud[0] + loud[1] > 0) heardEver = true;
-    deafFor = !heardEver && isPlaying() ? deafFor + dt : 0;
+    // The player is playing and the analyser has never reported anything
+    // loud enough to draw: this browser gives the page no sound to look at
+    // (or only a hiss that is no picture either). A browser that has been
+    // heard once is never doubted, however quiet the stream gets.
+    if (brightness(strongest) > 0) heardEver = true;
+    deafFor = !heardEver && playing() ? deafFor + dt : 0;
     if (deafFor > 3) {
       imagine(dt, loud);
     } else {
@@ -529,16 +540,48 @@ export async function start(canvas, analyser, {
     }
   }
 
+  // "?debug" in the address shows what the visual is doing, for a look at
+  // a browser there is no other way to look into.
+  let frames = 0;
+  let trouble = '';
+  let readout = null;
+  let readoutTimer = null;
+  if (/[?&]debug\b/.test(location.search)) {
+    readout = document.createElement('pre');
+    readout.style.cssText = 'position:fixed;right:0.75rem;top:4.5rem;z-index:2;margin:0;padding:0.4rem 0.6rem;'
+      + 'font:0.7rem/1.5 monospace;color:#9c9;background:rgba(0,0,0,0.7);pointer-events:none';
+    document.body.appendChild(readout);
+    readoutTimer = setInterval(() => {
+      readout.textContent = [
+        'ripples ' + BUILD,
+        'frames ' + frames + ' · canvas ' + width + 'x' + height,
+        'audio ' + (analyser ? analyser.context.state + ' ' + analyser.context.sampleRate : 'none'),
+        'playing ' + playing(),
+        'analyser level ' + strongest + '/255 · drawn ever ' + heardEver,
+        'unheard for ' + deafFor.toFixed(1) + ' s · made-up notes ' + notes.length,
+        'peaks voiced ' + voiced.length,
+        trouble,
+      ].join('\n');
+    }, 500);
+  }
+
   function frame(ms) {
     if (!running) return;
     requestAnimationFrame(frame);
+    frames++;
     const time = ms / 1000;
     if (began === null) began = previous = time;
     const dt = Math.min(0.1, Math.max(0.001, time - previous));
     previous = time;
     clock = time - began;
     fit();
-    listen(time, dt);
+    try {
+      listen(time, dt);
+    } catch (e) {
+      // said once, and the hub is still drawn
+      if (!trouble) console.warn('the "ripples" visual could not listen:', e);
+      trouble = 'error: ' + (e && e.message);
+    }
 
     // Time moves on whether or not a frame was drawn. A slow frame rate
     // repeats what was heard over the moments it missed; after a real gap
@@ -569,6 +612,8 @@ export async function start(canvas, analyser, {
     stop() {
       running = false;
       clearInterval(followTimer);
+      clearInterval(readoutTimer);
+      if (readout) readout.remove();
       canvas.removeEventListener('webglcontextlost', lost);
       if (splitter) {
         try { analyser.disconnect(splitter); } catch (e) {}
