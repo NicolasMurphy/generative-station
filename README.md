@@ -41,10 +41,11 @@ When a compound is generated on [mass-spectrum-to-audio-converter](https://githu
 
 The page shows what is playing, how long the station has been on air (since the first commit, 20 May 2026) and how long the current stream has been up, how many are listening, and a visit counter.
 
-There are two visuals, switched with **v** (and **f** for fullscreen):
+There are three visuals, stepped through with **v** (and **f** for fullscreen):
 
 - **bloom** (WebGPU): particles simulated on the GPU. Each voiced peak of the compound's spectrum is a ring whose radius and colour follow its frequency, and which swells when the stream has energy around that frequency.
-- **rings** (WebGL, three.js): eight rings of spectrum bars. Browsers without WebGPU get this one.
+- **ripples** (WebGL): the last 25 seconds of the stream, travelling outward from a hub. The angle is the note (each half of the picture is one octave), the colour is the octave, and the left and right halves are the left and right channels. A held note is a ray, a pluck a dash, a sweep a spiral, the kick a ring. The hub shows the compound's voiced peaks as sticks; each chord the station plays is that figure, turned.
+- **rings** (WebGL, three.js): eight rings of spectrum bars. Browsers without WebGPU start on this one.
 
 ---
 
