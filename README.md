@@ -41,9 +41,10 @@ When a compound is generated on [mass-spectrum-to-audio-converter](https://githu
 
 The page shows what is playing, how long the station has been on air (since the first commit, 20 May 2026) and how long the current stream has been up, how many are listening, and a visit counter.
 
-There are two visuals, switched with **v** (and **f** for fullscreen):
+There are three visuals, stepped through with **v** (and **f** for fullscreen):
 
 - **bloom** (WebGPU): particles simulated on the GPU. Each voiced peak of the compound's spectrum is a ring whose radius and colour follow its frequency, and which swells when the stream has energy around that frequency.
+- **sand** (WebGPU): the compound as a figure in sand on a vibrating plate. Each voiced peak drives one of the plate's modes, a finer one the higher the peak, and the sand gathers along the lines where the plate is still. The low, middle and high peaks each draw a figure in their own colour, and the figures change slowly all the time, faster where the stream has energy around their peaks.
 - **rings** (WebGL, three.js): eight rings of spectrum bars. Browsers without WebGPU get this one.
 
 ---

@@ -66,6 +66,7 @@
 <body>
 <canvas id="viz" class="viz"></canvas>
 <canvas id="viz-gpu" class="viz"></canvas>
+<canvas id="viz-sand" class="viz"></canvas>
 <audio controls src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <div id="status">
@@ -174,14 +175,18 @@
   });
 </script>
 <script type="module">
-  // Two visuals. "bloom" needs WebGPU; "rings" runs everywhere and is what a
-  // browser without WebGPU gets. They start with the first play, because a
-  // browser only allows the audio graph they listen to after a gesture.
+  // Three visuals. "bloom" and "sand" need WebGPU; "rings" runs everywhere
+  // and is all a browser without WebGPU gets. They start with the first
+  // play, because a browser only allows the audio graph they listen to
+  // after a gesture.
   const audio = document.querySelector('audio');
   const visuals = {
     bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
+    sand: { canvas: document.getElementById('viz-sand'), module: '/viz-sand.js' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
+  // The order the switch steps through.
+  const order = (navigator.gpu ? ['bloom', 'sand'] : []).concat(['rings']);
   let started = false;
   let analyser = null;
   let current = null;
@@ -218,6 +223,8 @@
       requestAnimationFrame(() => { visual.canvas.style.opacity = '1'; });
     } catch (e) {
       console.warn('the "' + name + '" visual could not start:', e);
+      // Not offered again, or the switch would keep coming back to it.
+      if (name !== 'rings' && order.includes(name)) order.splice(order.indexOf(name), 1);
       switching = false;
       if (name !== 'rings') return show('rings');
     } finally {
@@ -227,7 +234,8 @@
 
   function switchVisual() {
     if (!analyser || !current) return;
-    const next = current === 'bloom' ? 'rings' : 'bloom';
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    if (next === current) return;
     try { localStorage.setItem('gs-visual', next); } catch (e) {}
     show(next);
   }
@@ -245,7 +253,8 @@
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
 
-    await show(remembered() === 'rings' || !navigator.gpu ? 'rings' : 'bloom');
+    const saved = remembered();
+    await show(order.includes(saved) ? saved : order[0]);
     // Only offer the switch where there is something to switch to.
     document.getElementById('visual-line').hidden = !navigator.gpu;
   });
