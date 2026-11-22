@@ -37,6 +37,21 @@
     color: #8a8a8a;
   }
   #status b { color: #ccc; font-weight: normal; }
+  #credit {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 1.25rem;
+    z-index: 1;
+    font-size: 0.8rem;
+    line-height: 1.75;
+    color: #8a8a8a;
+  }
+  #credit a { color: #ccc; }
+  /* On a phone the two would share a line and collide: the credit keeps
+     the bottom line and the status sits just above it. */
+  @media (max-width: 640px) {
+    #status { bottom: calc(1.25rem + 1.4rem); }
+  }
   #visits span {
     display: inline-block;
     margin-right: 1px;
@@ -75,6 +90,7 @@
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
   <div id="visual-line" hidden><button id="visual-switch" type="button">change visual</button> (v) · fullscreen (f)</div>
 </div>
+<div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
 <script>
   // The day of the first commit. "This run" is how long the current stream
   // has been up; it starts again whenever the station restarts.
