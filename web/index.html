@@ -166,7 +166,8 @@
   player.addEventListener('error', reconnect);
 
   window.addEventListener('keydown', (e) => {
-    if (e.key !== 'f') return;
+    // Leave the browser its own shortcuts: Ctrl+F and Cmd+F are find.
+    if (e.key !== 'f' || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen().catch(() => {});
@@ -251,7 +252,7 @@
 
   document.getElementById('visual-switch').addEventListener('click', switchVisual);
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'v' && navigator.gpu) switchVisual();
+    if (e.key === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey && navigator.gpu) switchVisual();
   });
 </script>
 </body>
