@@ -66,7 +66,6 @@
 <body>
 <canvas id="viz" class="viz"></canvas>
 <canvas id="viz-gpu" class="viz"></canvas>
-<canvas id="viz-ripples" class="viz"></canvas>
 <audio controls src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <div id="status">
@@ -174,20 +173,14 @@
   });
 </script>
 <script type="module">
-  // Three visuals. "bloom" needs WebGPU; "ripples" and "rings" run
-  // everywhere, and "rings" is what a browser without WebGPU starts on. They
-  // start with the first play, because a browser only allows the audio graph
-  // they listen to after a gesture.
+  // Two visuals. "bloom" needs WebGPU; "rings" runs everywhere and is what a
+  // browser without WebGPU gets. They start with the first play, because a
+  // browser only allows the audio graph they listen to after a gesture.
   const audio = document.querySelector('audio');
   const visuals = {
     bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
-    // The number is the file's BUILD: a browser holding an older copy of the
-    // file fetches this one instead of using what it has.
-    ripples: { canvas: document.getElementById('viz-ripples'), module: '/viz-ripples.js?v=3' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
-  // The order the switch steps through.
-  const order = (navigator.gpu ? ['bloom'] : []).concat(['ripples', 'rings']);
   let started = false;
   let analyser = null;
   let current = null;
@@ -212,7 +205,6 @@
       const { start } = await import(visual.module);
       handle = await start(visual.canvas, analyser, {
         getCompound: () => (window.stationStats && window.stationStats.compound) || null,
-        isPlaying: () => !audio.paused && !audio.ended,
         onLost: (info) => {
           console.warn('the "' + name + '" visual lost its GPU device:', info && info.message);
           handle = null;
@@ -225,8 +217,6 @@
       requestAnimationFrame(() => { visual.canvas.style.opacity = '1'; });
     } catch (e) {
       console.warn('the "' + name + '" visual could not start:', e);
-      // Not offered again, or the switch would keep coming back to it.
-      if (name !== 'rings' && order.includes(name)) order.splice(order.indexOf(name), 1);
       switching = false;
       if (name !== 'rings') return show('rings');
     } finally {
@@ -236,7 +226,7 @@
 
   function switchVisual() {
     if (!analyser || !current) return;
-    const next = order[(order.indexOf(current) + 1) % order.length];
+    const next = current === 'bloom' ? 'rings' : 'bloom';
     try { localStorage.setItem('gs-visual', next); } catch (e) {}
     show(next);
   }
@@ -254,14 +244,14 @@
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
 
-    const saved = remembered();
-    await show(order.includes(saved) ? saved : (navigator.gpu ? 'bloom' : 'rings'));
-    document.getElementById('visual-line').hidden = false;
+    await show(remembered() === 'rings' || !navigator.gpu ? 'rings' : 'bloom');
+    // Only offer the switch where there is something to switch to.
+    document.getElementById('visual-line').hidden = !navigator.gpu;
   });
 
   document.getElementById('visual-switch').addEventListener('click', switchVisual);
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'v') switchVisual();
+    if (e.key === 'v' && navigator.gpu) switchVisual();
   });
 </script>
 </body>

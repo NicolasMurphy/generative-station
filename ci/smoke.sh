@@ -113,7 +113,7 @@ echo "   counted once per address, and kept across a picker restart"
 
 echo "== the same page straight from Icecast (local runs use port 8000)"
 curl -fsS -m 10 http://127.0.0.1:8000/ | grep -q '<title>' || fail "Icecast does not serve the page at /"
-for path in "$script" /viz-bloom.js /viz-ripples.js /viz-rings.js; do
+for path in "$script" /viz-bloom.js /viz-rings.js; do
     direct=$(curl -s -o /dev/null -m 10 -w '%{content_type}' "http://127.0.0.1:8000$path" || true)
     case "$direct" in
         *javascript*) ;;
