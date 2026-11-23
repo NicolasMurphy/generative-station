@@ -72,7 +72,10 @@
     cursor: pointer;
     text-decoration: underline dotted;
   }
-  #visual-part:not([hidden]) + #fullscreen-part::before { content: ' · '; }
+  #visual-part:not([hidden]) + #watch-part::before { content: ' · '; }
+  /* Where the words can only be hidden, not the browser with them, there
+     is nothing to offer until a picture is drawn behind them. */
+  html:not([data-visual]) #watch-part.words-only { display: none; }
   /* A key is no use where there is no keyboard. */
   @media (hover: none) {
     .key { display: none; }
@@ -80,7 +83,8 @@
   /* Fullscreen is for watching: once nothing has been touched for a few
      seconds the page's words and the pointer leave the picture, slowly, and
      the first movement, tap or key brings them back at once. Only while a
-     visual is drawing, or the screen would be left empty. */
+     visual is drawing, or the screen would be left empty. An iPhone, which
+     has no fullscreen for a page, is watched the same way in its browser. */
   audio, #compound, #status, #credit { transition: opacity 0.25s ease; }
   html.idle[data-visual] audio,
   html.idle[data-visual] #compound,
@@ -117,7 +121,7 @@
   <div>on air since 20 May 2026 · <b id="on-air"></b></div>
   <div id="run-line" hidden>this run · <b id="this-run"></b></div>
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
-  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span></span><span id="fullscreen-part" hidden><button id="fullscreen-switch" type="button">fullscreen</button><span class="key"> (f)</span></span></div>
+  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span></div>
 </div>
 <div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
 <script>
@@ -297,30 +301,54 @@
   player.addEventListener('ended', reconnect);
   player.addEventListener('error', reconnect);
 
-  // Fullscreen, by the f key or by the button, which is all a phone or a
-  // tablet has. An iPhone cannot put a page in fullscreen and is not
-  // offered it.
+  // Watching is the picture with nothing in front of it. Where a page can
+  // be put in fullscreen that is what watching is, by the f key or by the
+  // button, which is all a phone or a tablet has. An iPhone cannot put a
+  // page in fullscreen: there the same button hides the words and leaves
+  // the browser as it is, and everything else about watching is the same.
   const root = document.documentElement;
   const canFullscreen = Boolean(document.fullscreenEnabled && root.requestFullscreen);
-  function toggleFullscreen() {
-    if (!canFullscreen) return;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else root.requestFullscreen().catch(() => {});
+  const watchSwitch = byId('watch-switch');
+  let wordsHidden = false; // watching, where there is no fullscreen
+  const watching = () => Boolean(document.fullscreenElement) || wordsHidden;
+  function toggleWatching() {
+    if (canFullscreen) {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else root.requestFullscreen().catch(() => {});
+      return;
+    }
+    // Nothing to watch yet: the words stay.
+    if (!wordsHidden && !root.dataset.visual) return;
+    wordsHidden = !wordsHidden;
+    // When the words next come back, the button is how they are kept.
+    watchSwitch.textContent = wordsHidden ? 'keep words' : 'hide words';
+    stir();
+    // The words were asked to go, so they go now and not in a few seconds.
+    if (wordsHidden) settle();
+    holdScreen();
   }
-  byId('fullscreen-part').hidden = !canFullscreen;
-  byId('fullscreen-switch').addEventListener('click', toggleFullscreen);
+  if (!canFullscreen) {
+    watchSwitch.textContent = 'hide words';
+    byId('watch-part').classList.add('words-only');
+  }
+  watchSwitch.addEventListener('click', toggleWatching);
   window.addEventListener('keydown', (e) => {
     // Leave the browser its own shortcuts: Ctrl+F and Cmd+F are find.
     if (e.key !== 'f' || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
-    toggleFullscreen();
+    toggleWatching();
   });
 
-  // In fullscreen the words leave the picture once nothing has been touched
-  // for a while (the style sheet says how), and anything touched brings
-  // them back.
+  // While watching, the words leave the picture once nothing has been
+  // touched for a while (the style sheet says how), and anything touched
+  // brings them back.
   const IDLE_AFTER = 4000;
   let idleTimer = null;
+  function settle() {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+    root.classList.add('idle');
+  }
   function stir() {
     if (root.classList.contains('idle')) {
       root.classList.remove('idle');
@@ -328,9 +356,7 @@
       setTimeout(() => root.classList.remove('waking'), 400);
     }
     clearTimeout(idleTimer);
-    idleTimer = document.fullscreenElement
-      ? setTimeout(() => root.classList.add('idle'), IDLE_AFTER)
-      : null;
+    idleTimer = watching() ? setTimeout(settle, IDLE_AFTER) : null;
   }
   // A browser also reports a move when the page changes under a pointer
   // that is lying still, which the fade itself would set off.
@@ -345,13 +371,13 @@
   window.addEventListener('keydown', stir);
 
   // Nobody touches a screen they are watching, so it would dim and lock in
-  // the middle of the picture. While the station plays in fullscreen the
+  // the middle of the picture. While the station plays and is watched the
   // screen is asked to stay awake, and let go again as soon as either ends.
   let screenLock = null;
   let lockAsked = false;
   async function holdScreen() {
     if (!navigator.wakeLock || lockAsked) return;
-    const wanted = Boolean(document.fullscreenElement) && !player.paused
+    const wanted = watching() && !player.paused
       && document.visibilityState === 'visible';
     if (wanted && !screenLock) {
       lockAsked = true;

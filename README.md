@@ -52,6 +52,8 @@ There are four visuals, stepped through with **v** or the page's own switch. The
 
 Fullscreen (**f**, or the button beside the switch, which is what a phone or a tablet has) is for watching. Once nothing has been touched for a few seconds the player, the words and the pointer fade out of the picture; a movement, a tap or a key brings them back, and so does a new compound, for long enough to read its name. While the station plays in fullscreen the screen is kept from dimming and locking.
 
+An iPhone cannot put a page in fullscreen. There the button reads **hide words** and does the rest of it inside the browser: the words leave the picture, a tap brings them back for a few seconds (and with them **keep words**, which ends it), and the screen stays awake while the station plays.
+
 ---
 
 ## Running Locally
