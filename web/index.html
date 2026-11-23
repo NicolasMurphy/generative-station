@@ -63,7 +63,7 @@
     border: 1px solid #333;
     color: #e6e6e6;
   }
-  #visual-switch {
+  #status button {
     font: inherit;
     color: inherit;
     background: none;
@@ -71,6 +71,31 @@
     padding: 0;
     cursor: pointer;
     text-decoration: underline dotted;
+  }
+  #visual-part:not([hidden]) + #fullscreen-part::before { content: ' · '; }
+  /* A key is no use where there is no keyboard. */
+  @media (hover: none) {
+    .key { display: none; }
+  }
+  /* Fullscreen is for watching: once nothing has been touched for a few
+     seconds the page's words and the pointer leave the picture, slowly, and
+     the first movement, tap or key brings them back at once. Only while a
+     visual is drawing, or the screen would be left empty. */
+  audio, #compound, #status, #credit { transition: opacity 0.25s ease; }
+  html.idle[data-visual] audio,
+  html.idle[data-visual] #compound,
+  html.idle[data-visual] #status,
+  html.idle[data-visual] #credit {
+    opacity: 0;
+    transition-duration: 1.5s;
+  }
+  html.idle[data-visual], html.idle[data-visual] * { cursor: none; }
+  /* What cannot be seen cannot be pressed, and the tap that brings the
+     words back does not also land on whatever is under it. */
+  html.idle[data-visual] audio, html.waking[data-visual] audio,
+  html.idle[data-visual] #status, html.waking[data-visual] #status,
+  html.idle[data-visual] #credit, html.waking[data-visual] #credit {
+    pointer-events: none;
   }
 </style>
 <script type="importmap">
@@ -92,7 +117,7 @@
   <div>on air since 20 May 2026 · <b id="on-air"></b></div>
   <div id="run-line" hidden>this run · <b id="this-run"></b></div>
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
-  <div id="visual-line" hidden><button id="visual-switch" type="button">change visual</button> (v) · fullscreen (f)</div>
+  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span></span><span id="fullscreen-part" hidden><button id="fullscreen-switch" type="button">fullscreen</button><span class="key"> (f)</span></span></div>
 </div>
 <div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
 <script>
@@ -216,9 +241,13 @@
       clockOffset = d.now * 1000 - Date.now();
       streamStarted = typeof d.stream_started === 'number' ? d.stream_started * 1000 : null;
       const c = d.compound;
-      byId('compound').textContent = c
+      const playing = c
         ? c.name + ' — ' + c.n_peaks + ' peaks · ' + c.algorithm
         : 'awaiting compound';
+      if (byId('compound').textContent !== playing) {
+        byId('compound').textContent = playing;
+        stir(); // someone watching in fullscreen is shown the new name
+      }
       announce(c);
       byId('listeners-line').hidden = typeof d.listeners !== 'number';
       if (typeof d.listeners === 'number') byId('listeners').textContent = d.listeners;
@@ -268,13 +297,81 @@
   player.addEventListener('ended', reconnect);
   player.addEventListener('error', reconnect);
 
+  // Fullscreen, by the f key or by the button, which is all a phone or a
+  // tablet has. An iPhone cannot put a page in fullscreen and is not
+  // offered it.
+  const root = document.documentElement;
+  const canFullscreen = Boolean(document.fullscreenEnabled && root.requestFullscreen);
+  function toggleFullscreen() {
+    if (!canFullscreen) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else root.requestFullscreen().catch(() => {});
+  }
+  byId('fullscreen-part').hidden = !canFullscreen;
+  byId('fullscreen-switch').addEventListener('click', toggleFullscreen);
   window.addEventListener('keydown', (e) => {
     // Leave the browser its own shortcuts: Ctrl+F and Cmd+F are find.
     if (e.key !== 'f' || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen().catch(() => {});
+    toggleFullscreen();
   });
+
+  // In fullscreen the words leave the picture once nothing has been touched
+  // for a while (the style sheet says how), and anything touched brings
+  // them back.
+  const IDLE_AFTER = 4000;
+  let idleTimer = null;
+  function stir() {
+    if (root.classList.contains('idle')) {
+      root.classList.remove('idle');
+      root.classList.add('waking');
+      setTimeout(() => root.classList.remove('waking'), 400);
+    }
+    clearTimeout(idleTimer);
+    idleTimer = document.fullscreenElement
+      ? setTimeout(() => root.classList.add('idle'), IDLE_AFTER)
+      : null;
+  }
+  // A browser also reports a move when the page changes under a pointer
+  // that is lying still, which the fade itself would set off.
+  let pointerAt = '';
+  window.addEventListener('pointermove', (e) => {
+    const at = e.screenX + ',' + e.screenY;
+    if (at === pointerAt) return;
+    pointerAt = at;
+    stir();
+  });
+  window.addEventListener('pointerdown', stir);
+  window.addEventListener('keydown', stir);
+
+  // Nobody touches a screen they are watching, so it would dim and lock in
+  // the middle of the picture. While the station plays in fullscreen the
+  // screen is asked to stay awake, and let go again as soon as either ends.
+  let screenLock = null;
+  let lockAsked = false;
+  async function holdScreen() {
+    if (!navigator.wakeLock || lockAsked) return;
+    const wanted = Boolean(document.fullscreenElement) && !player.paused
+      && document.visibilityState === 'visible';
+    if (wanted && !screenLock) {
+      lockAsked = true;
+      try {
+        const lock = await navigator.wakeLock.request('screen');
+        // The browser lets go by itself when the page is hidden.
+        lock.addEventListener('release', () => { if (screenLock === lock) screenLock = null; });
+        screenLock = lock;
+      } catch (e) {}
+      lockAsked = false;
+      if (screenLock) holdScreen(); // in case it stopped being wanted meanwhile
+    } else if (!wanted && screenLock) {
+      const lock = screenLock;
+      screenLock = null;
+      lock.release().catch(() => {});
+    }
+  }
+  ['playing', 'pause', 'ended', 'error', 'emptied'].forEach((name) => player.addEventListener(name, holdScreen));
+  document.addEventListener('visibilitychange', holdScreen);
+  document.addEventListener('fullscreenchange', () => { stir(); holdScreen(); });
 </script>
 <script type="module">
   // Four visuals. "bloom", "sand" and "reaction" need WebGPU; "rings" runs
@@ -296,6 +393,12 @@
   let current = null;
   let handle = null;
   let switching = false;
+  // The page reads from the root element whether anything is being drawn.
+  function nowShowing(name) {
+    current = name;
+    if (name) document.documentElement.dataset.visual = name;
+    else delete document.documentElement.dataset.visual;
+  }
 
   // What a visual is given to listen with. A browser only allows the audio
   // graph after a gesture, so the analyser itself does not exist before the
@@ -334,7 +437,7 @@
         handle.stop();
         handle = null;
         visuals[current].canvas.style.opacity = '0';
-        current = null;
+        nowShowing(null);
       }
       const visual = visuals[name];
       const { start } = await import(visual.module);
@@ -343,12 +446,12 @@
         onLost: (info) => {
           console.warn('the "' + name + '" visual lost its GPU device:', info && info.message);
           handle = null;
-          current = null;
+          nowShowing(null);
           visual.canvas.style.opacity = '0';
           show('rings');
         },
       });
-      current = name;
+      nowShowing(name);
       requestAnimationFrame(() => { visual.canvas.style.opacity = '1'; });
     } catch (e) {
       console.warn('the "' + name + '" visual could not start:', e);
@@ -399,7 +502,7 @@
   });
 
   // Only offer the switch where there is something to switch to.
-  document.getElementById('visual-line').hidden = !navigator.gpu;
+  document.getElementById('visual-part').hidden = !navigator.gpu;
   document.getElementById('visual-switch').addEventListener('click', switchVisual);
   window.addEventListener('keydown', (e) => {
     if (e.key === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey && navigator.gpu) switchVisual();
