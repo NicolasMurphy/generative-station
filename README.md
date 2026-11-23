@@ -43,7 +43,7 @@ The page shows what is playing, how long the station has been on air (since the 
 
 What is playing is also told to the device, so a phone's lock screen and a desktop's media controls show the compound's name. Its cover is the compound's own spectrum: the voiced peaks from low to high, each as tall as it is strong.
 
-There are four visuals, stepped through with **v** (and **f** for fullscreen):
+There are four visuals, stepped through with **v** (and **f** for fullscreen). The WebGPU ones are already drawing when the page opens, from the compound alone, and follow the stream from the first play on:
 
 - **bloom** (WebGPU): particles simulated on the GPU. Each voiced peak of the compound's spectrum is a ring whose radius and colour follow its frequency, and which swells when the stream has energy around that frequency.
 - **sand** (WebGPU): the compound as a figure in sand on a vibrating plate. Each voiced peak drives one of the plate's modes, a finer one the higher the peak, and the sand gathers along the lines where the plate is still. The low, middle and high peaks each draw a figure in their own colour, and the figures change slowly all the time, faster where the stream has energy around their peaks.

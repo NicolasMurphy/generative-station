@@ -226,7 +226,9 @@
       tickClocks();
     } catch (e) {}
   }
-  updateStats();
+  // The visual waits for the first answer, so that it opens on the
+  // compound and not on the figure it draws while there is none.
+  window.stationStatsReady = updateStats();
   setInterval(updateStats, 10000);
 
   // Count this browser as a visit, at most once every twelve hours.
@@ -276,9 +278,10 @@
 </script>
 <script type="module">
   // Four visuals. "bloom", "sand" and "reaction" need WebGPU; "rings" runs
-  // everywhere and is all a browser without WebGPU gets. They start with
-  // the first play, because a browser only allows the audio graph they
-  // listen to after a gesture.
+  // everywhere and is all a browser without WebGPU gets. The WebGPU ones
+  // draw the compound whether or not there is sound, so they are there when
+  // the page opens, and follow the stream from the first play on. "rings"
+  // draws the sound and nothing else, so it waits for the first play.
   const audio = document.querySelector('audio');
   const visuals = {
     bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
@@ -288,15 +291,40 @@
   };
   // The order the switch steps through.
   const order = (navigator.gpu ? ['bloom', 'sand', 'reaction'] : []).concat(['rings']);
-  let started = false;
+  let started = false; // the audio graph, with the first play
   let analyser = null;
   let current = null;
   let handle = null;
   let switching = false;
 
+  // What a visual is given to listen with. A browser only allows the audio
+  // graph after a gesture, so the analyser itself does not exist before the
+  // first play; until then this hears silence. It always counts its bins
+  // over 0 to 24 kHz, whatever rate the device turns out to play at.
+  const BINS = 2048;
+  const RATE = 48000;
+  let heard = null;
+  const ears = {
+    frequencyBinCount: BINS,
+    context: { sampleRate: RATE },
+    getByteFrequencyData(into) {
+      if (!analyser) return;
+      const rate = analyser.context.sampleRate;
+      if (rate === RATE && into.length === analyser.frequencyBinCount) {
+        analyser.getByteFrequencyData(into);
+        return;
+      }
+      if (!heard) heard = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(heard);
+      for (let i = 0; i < into.length; i++) into[i] = heard[Math.round((i * RATE) / rate)] || 0;
+    },
+  };
+
   function remembered() {
     try { return localStorage.getItem('gs-visual'); } catch (e) { return null; }
   }
+  // The visual this browser was left on, or the first.
+  const first = order.includes(remembered()) ? remembered() : order[0];
 
   async function show(name) {
     if (switching) return;
@@ -310,7 +338,7 @@
       }
       const visual = visuals[name];
       const { start } = await import(visual.module);
-      handle = await start(visual.canvas, analyser, {
+      handle = await start(visual.canvas, ears, {
         getCompound: () => (window.stationStats && window.stationStats.compound) || null,
         onLost: (info) => {
           console.warn('the "' + name + '" visual lost its GPU device:', info && info.message);
@@ -334,11 +362,24 @@
   }
 
   function switchVisual() {
-    if (!analyser || !current) return;
-    const next = order[(order.indexOf(current) + 1) % order.length];
+    // Before the first play there is nothing for "rings" to draw.
+    const offered = analyser ? order : order.filter((name) => name !== 'rings');
+    if (switching || !offered.length) return;
+    const next = offered[(offered.indexOf(current || first) + 1) % offered.length];
     if (next === current) return;
     try { localStorage.setItem('gs-visual', next); } catch (e) {}
     show(next);
+  }
+
+  // The picture is there before the sound, except for someone who has asked
+  // their device for less motion: they get it with the first play, as
+  // everyone did before.
+  const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (first !== 'rings' && !still) {
+    Promise.race([
+      window.stationStatsReady,
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]).then(() => { if (!current) show(first); });
   }
 
   audio.addEventListener('play', async () => {
@@ -349,17 +390,16 @@
     if (audioCtx.state === 'suspended') await audioCtx.resume();
     const source = audioCtx.createMediaElementSource(audio);
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 4096;
+    analyser.fftSize = 2 * BINS;
     analyser.smoothingTimeConstant = 0.7;
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
 
-    const saved = remembered();
-    await show(order.includes(saved) ? saved : order[0]);
-    // Only offer the switch where there is something to switch to.
-    document.getElementById('visual-line').hidden = !navigator.gpu;
+    if (!current) await show(order.includes(first) ? first : 'rings');
   });
 
+  // Only offer the switch where there is something to switch to.
+  document.getElementById('visual-line').hidden = !navigator.gpu;
   document.getElementById('visual-switch').addEventListener('click', switchVisual);
   window.addEventListener('keydown', (e) => {
     if (e.key === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey && navigator.gpu) switchVisual();
