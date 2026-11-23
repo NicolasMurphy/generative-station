@@ -41,6 +41,8 @@ When a compound is generated on [mass-spectrum-to-audio-converter](https://githu
 
 The page shows what is playing, how long the station has been on air (since the first commit, 20 May 2026) and how long the current stream has been up, how many are listening, and a visit counter.
 
+What is playing is also told to the device, so a phone's lock screen and a desktop's media controls show the compound's name. Its cover is the compound's own spectrum: the voiced peaks from low to high, each as tall as it is strong.
+
 There are four visuals, stepped through with **v** (and **f** for fullscreen):
 
 - **bloom** (WebGPU): particles simulated on the GPU. Each voiced peak of the compound's spectrum is a ring whose radius and colour follow its frequency, and which swells when the stream has energy around that frequency.

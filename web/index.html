@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>generative-station</title>
+<link rel="icon" href="/icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <style>
   html { background: #111; }
   body {
@@ -123,6 +126,85 @@
     byId('visits-line').hidden = false;
   }
 
+  // The cover a phone or a desktop shows next to what is playing: the
+  // compound's own spectrum, the peaks the station voices (the same rule as
+  // piece.scd), low to high from left to right, a peak's height its
+  // strength, in the colours the visuals give them.
+  const COVER = 512;
+  const COVER_COLOURS = [[255, 71, 31], [243, 255, 104], [56, 255, 102], [73, 255, 255], [46, 102, 255]];
+  function coverColour(x) {
+    const at = Math.min(1, Math.max(0, x)) * (COVER_COLOURS.length - 1);
+    const i = Math.min(COVER_COLOURS.length - 2, Math.floor(at));
+    const a = COVER_COLOURS[i];
+    const b = COVER_COLOURS[i + 1];
+    return 'rgb(' + a.map((v, k) => Math.round(v + (b[k] - v) * (at - i))).join(',') + ')';
+  }
+  function drawCover(c) {
+    const freqs = Array.isArray(c.frequencies) ? c.frequencies : [];
+    const amps = Array.isArray(c.amplitudes) ? c.amplitudes : [];
+    let peaks = freqs.map((f, i) => ({ f, a: amps[i] })).filter((p) => p.f > 0 && p.a > 0);
+    const top = Math.max(0, ...peaks.map((p) => p.a));
+    if (!peaks.length) return null;
+    peaks = peaks.filter((p) => p.a >= top * 0.01).sort((p, q) => q.a - p.a).slice(0, 32);
+    const logs = peaks.map((p) => Math.log(p.f));
+    const lo = Math.min(...logs);
+    const span = Math.max(...logs) - lo;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = COVER;
+    const g = canvas.getContext('2d');
+    g.fillStyle = '#111';
+    g.fillRect(0, 0, COVER, COVER);
+    const left = 72;
+    const right = COVER - 72;
+    const floor = 404;
+    const tallest = 296;
+    g.fillStyle = '#2a2a2a';
+    g.fillRect(left - 24, floor + 14, right - left + 48, 2);
+    g.lineCap = 'round';
+    g.lineWidth = Math.min(14, Math.max(4, 150 / peaks.length));
+    g.shadowBlur = 2 * g.lineWidth;
+    // Peaks that lie close together run into one another, as they do in a
+    // drawn mass spectrum. The weakest are drawn first, so that a strong
+    // peak is not hidden behind its neighbours.
+    peaks.reverse().forEach((p) => {
+      const x = span > 0 ? (Math.log(p.f) - lo) / span : 0.5;
+      const at = left + x * (right - left);
+      g.strokeStyle = g.shadowColor = coverColour(x);
+      g.beginPath();
+      g.moveTo(at, floor);
+      g.lineTo(at, floor - Math.max(4, tallest * Math.sqrt(p.a / top)));
+      g.stroke();
+    });
+    return canvas.toDataURL('image/png');
+  }
+
+  // What is playing, for where a listener looks once the page is out of
+  // sight: the lock screen, the notifications, the media keys' pop-up.
+  let announced = null;
+  function announce(c) {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata !== 'function') return;
+    const key = c
+      ? [c.name, c.accession, c.n_peaks, c.frequencies && c.frequencies[0]].join('|')
+      : '';
+    if (key === announced) return;
+    announced = key;
+    try {
+      // The station's icon stands in where there is no compound, and where
+      // a browser will not take a picture that is not a file.
+      const artwork = [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }];
+      const cover = c ? drawCover(c) : null;
+      if (cover) artwork.unshift({ src: cover, sizes: COVER + 'x' + COVER, type: 'image/png' });
+      navigator.mediaSession.metadata = new MediaMetadata(c ? {
+        title: c.name,
+        artist: 'generative-station',
+        album: c.n_peaks + (c.n_peaks === 1 ? ' peak · ' : ' peaks · ') + c.algorithm,
+        artwork,
+      } : { title: 'generative-station', artwork });
+    } catch (e) {}
+  }
+  announce(null);
+
   // One request carries everything the page shows; the visual reads the
   // compound's peaks from window.stationStats.
   async function updateStats() {
@@ -137,6 +219,7 @@
       byId('compound').textContent = c
         ? c.name + ' — ' + c.n_peaks + ' peaks · ' + c.algorithm
         : 'awaiting compound';
+      announce(c);
       byId('listeners-line').hidden = typeof d.listeners !== 'number';
       if (typeof d.listeners === 'number') byId('listeners').textContent = d.listeners;
       showVisits(d.visits);

@@ -33,6 +33,16 @@ for path in "$script" /viz-bloom.js /viz-sand.js /viz-reaction.js /viz-rings.js;
     esac
 done
 
+# The tab's icon, the home-screen icon and the cover a lock screen falls
+# back to.
+for path in /icon.svg /icon-32.png /icon-180.png /icon-512.png; do
+    type=$(curl -s -o /dev/null -m 20 -w '%{content_type}' "$site$path" || true)
+    case "$type" in
+        image/*) ;;
+        *) fail "$path is served as '$type', not an image" ;;
+    esac
+done
+
 # 128 kbit/s is 16 kB a second, plus Icecast's burst on connect.
 bytes=$(curl -s -m 5 "$site/stream" 2>/dev/null | wc -c) || true
 [ "$bytes" -gt 20000 ] || fail "/stream delivered only $bytes bytes in 5 s"

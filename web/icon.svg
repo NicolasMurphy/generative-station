@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Five peaks of a spectrum, low to high, in the colours the visuals give them. -->
+  <rect width="64" height="64" rx="13" fill="#111"/>
+  <g stroke-width="7" stroke-linecap="round">
+    <path d="M12 51V35" stroke="#ff471f"/>
+    <path d="M22 51V22" stroke="#f3ff68"/>
+    <path d="M32 51V40" stroke="#38ff66"/>
+    <path d="M42 51V13" stroke="#49ffff"/>
+    <path d="M52 51V30" stroke="#2e66ff"/>
+  </g>
+</svg>
