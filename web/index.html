@@ -116,6 +116,7 @@
 <canvas id="viz-sand" class="viz"></canvas>
 <canvas id="viz-reaction" class="viz"></canvas>
 <canvas id="viz-trace" class="viz"></canvas>
+<canvas id="viz-aurora" class="viz"></canvas>
 <audio controls src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <div id="status">
@@ -401,22 +402,23 @@
   document.addEventListener('fullscreenchange', () => { stir(); holdScreen(); });
 </script>
 <script type="module">
-  // Five visuals. "bloom", "sand", "reaction" and "trace" need WebGPU;
-  // "rings" runs everywhere and is all a browser without WebGPU gets. The
-  // WebGPU ones draw the compound whether or not there is sound, so they
-  // are there when the page opens, and follow the stream from the first
-  // play on. "rings" draws the sound and nothing else, so it waits for the
-  // first play.
+  // Six visuals. "bloom", "sand", "reaction", "trace" and "aurora" need
+  // WebGPU; "rings" runs everywhere and is all a browser without WebGPU
+  // gets. The WebGPU ones draw the compound whether or not there is sound,
+  // so they are there when the page opens, and follow the stream from the
+  // first play on. "rings" draws the sound and nothing else, so it waits
+  // for the first play.
   const audio = document.querySelector('audio');
   const visuals = {
     bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
     sand: { canvas: document.getElementById('viz-sand'), module: '/viz-sand.js' },
     reaction: { canvas: document.getElementById('viz-reaction'), module: '/viz-reaction.js' },
     trace: { canvas: document.getElementById('viz-trace'), module: '/viz-trace.js' },
+    aurora: { canvas: document.getElementById('viz-aurora'), module: '/viz-aurora.js' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
   // The order the switch steps through.
-  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace'] : []).concat(['rings']);
+  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora'] : []).concat(['rings']);
   let started = false; // the audio graph, with the first play
   let analyser = null;
   let current = null;
