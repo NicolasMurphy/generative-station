@@ -355,6 +355,55 @@
     });
   });
 
+  // A connection can also die without a word. A phone that is out of signal
+  // for longer than Icecast will wait is dropped by it and never hears so,
+  // and the browser then waits for good on a connection that nothing will
+  // come down: no error, no end, the player still showing that it plays,
+  // and pause and play only go back to the same dead connection. So when
+  // the sound should be moving on, has not for a while, and it is the
+  // stream that the player is waiting for, connect afresh. An attempt that
+  // brings nothing is followed by one that is given longer, so that a slow
+  // connection is not cut off again and again before it can start.
+  const STUCK_AFTER = 10000;
+  const STUCK_LONGEST = 30000;
+  let patience = STUCK_AFTER;
+  let movedAt = Date.now(); // when the sound last moved on, or did not have to
+  let movedTo = -1;
+  let stuckFor = 0;         // looks in a row that found it where it was
+  setInterval(() => {
+    const now = Date.now();
+    const at = player.currentTime;
+    const moved = at > movedTo;
+    movedTo = at;
+    if (moved) patience = STUCK_AFTER;
+    // A player that has sound to play and stands still is held up by
+    // something else (the device's sound, say), which a new connection
+    // would not mend.
+    const starved = player.readyState < 3;
+    if (moved || !starved || !listening || player.paused || retryTimer) {
+      movedAt = now;
+      stuckFor = 0;
+      return;
+    }
+    // Two looks at least: the first after a device has slept, or a hidden
+    // page has been held back, says only that this was not running.
+    stuckFor += 1;
+    if (stuckFor < 2 || now - movedAt < patience) return;
+    movedAt = now;
+    stuckFor = 0;
+    patience = Math.min(2 * patience, STUCK_LONGEST);
+    joinedAt = now;
+    player.load();
+    player.play().catch((e) => {
+      // Where the page may not start the sound itself, the player is left
+      // stopped and showing it: the next press is the listener's, and it
+      // connects afresh. A start that was called off, by a pause or by
+      // another connection, is left to whatever called it off.
+      if (e && e.name === 'NotAllowedError') listening = false;
+      else if (!e || e.name !== 'AbortError') reconnect();
+    });
+  }, 1000);
+
   // Watching is the picture with nothing in front of it. Where a page can
   // be put in fullscreen that is what watching is, by the f key or by the
   // button, which is all a phone or a tablet has. An iPhone cannot put a

@@ -43,6 +43,8 @@ The page shows what is playing, how long the station has been on air (since the 
 
 The player connects to the stream when play is pressed, not when the page opens, and play after a pause of more than a few seconds connects again. So what is heard is what is on now, in step with the name and the picture, and "listening now" counts listeners rather than open pages.
 
+If the connection dies while someone is listening, the page connects again by itself. That includes the death nothing reports: a connection that goes quiet without being closed, as when a phone is out of signal for so long that the server gives it up and the word never arrives. A browser left to itself then shows a playing player over silence for good. The page notices that the player has been waiting for the stream for ten seconds and joins it afresh.
+
 What is playing is also told to the device, so a phone's lock screen and a desktop's media controls show the compound's name. Its cover is the compound's own spectrum: the voiced peaks from low to high, each as tall as it is strong.
 
 There are six visuals, stepped through with **v** or the page's own switch. The WebGPU ones are already drawing when the page opens, from the compound alone, and follow the stream from the first play on:
