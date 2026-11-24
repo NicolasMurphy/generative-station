@@ -52,6 +52,8 @@ There are six visuals, stepped through with **v** or the page's own switch. The 
 - **aurora** (WebGPU): the compound as northern lights. The curtain is the compound's spectrum hung across the sky from its lowest peak to its highest, and each voiced peak is a ray in it: where the ray stands follows the peak's frequency, and how bright it is and how far up it reaches follow its strength. It is the lock screen's cover, hung in the air and seen from the ground. The curtain is a thin sheet that waves slowly, and where it turns along the line of sight it folds, its light piles up and its rays stand close together. A ray brightens and reaches higher while the stream has energy around its peak, and a new compound's rays grow in where the old ones fade.
 - **rings** (WebGL, three.js): eight rings of spectrum bars. Browsers without WebGPU get this one.
 
+Under the compound's name the page says which visual is showing and, in a line, what it is a picture of: that a ring, a ray or a swing of the pen is one of the compound's peaks.
+
 Fullscreen (**f**, or the button beside the switch, which is what a phone or a tablet has) is for watching. Once nothing has been touched for a few seconds the player, the words and the pointer fade out of the picture; a movement, a tap or a key brings them back, and so does a new compound, for long enough to read its name. While the station plays in fullscreen the screen is kept from dimming and locking.
 
 An iPhone cannot put a page in fullscreen. There the button reads **hide words** and does the rest of it inside the browser: the words leave the picture, a tap brings them back for a few seconds (and with them **keep words**, which ends it), and the screen stays awake while the station plays.
