@@ -41,6 +41,8 @@ When a compound is generated on [mass-spectrum-to-audio-converter](https://githu
 
 The page shows what is playing, how long the station has been on air (since the first commit, 20 May 2026) and how long the current stream has been up, how many are listening, and a visit counter.
 
+The player connects to the stream when play is pressed, not when the page opens, and play after a pause of more than a few seconds connects again. So what is heard is what is on now, in step with the name and the picture, and "listening now" counts listeners rather than open pages.
+
 What is playing is also told to the device, so a phone's lock screen and a desktop's media controls show the compound's name. Its cover is the compound's own spectrum: the voiced peaks from low to high, each as tall as it is strong.
 
 There are six visuals, stepped through with **v** or the page's own switch. The WebGPU ones are already drawing when the page opens, from the compound alone, and follow the stream from the first play on:

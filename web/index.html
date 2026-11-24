@@ -130,7 +130,7 @@
 <canvas id="viz-reaction" class="viz"></canvas>
 <canvas id="viz-trace" class="viz"></canvas>
 <canvas id="viz-aurora" class="viz"></canvas>
-<audio controls src="/stream"></audio>
+<audio controls preload="none" src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <p id="caption" hidden></p>
 <div id="status">
@@ -300,22 +300,60 @@
   const player = document.querySelector('audio');
   let listening = false;
   let retryTimer = null;
-  player.addEventListener('playing', () => { listening = true; });
+  let pausedAt = null; // when the listener paused, until the sound is back
+  let joinedAt = 0;    // when the page last connected to the stream itself
+  player.addEventListener('playing', () => {
+    listening = true;
+    pausedAt = null;
+  });
   player.addEventListener('pause', () => {
     // Only a pause on a healthy stream is the listener's own. The stream
     // ending or failing also pauses the element.
-    if (!player.ended && !player.error && player.readyState > 2) listening = false;
+    if (!player.ended && !player.error && player.readyState > 2) {
+      listening = false;
+      pausedAt = Date.now();
+    }
   });
   function reconnect() {
     if (!listening || retryTimer) return;
     retryTimer = setTimeout(() => {
       retryTimer = null;
+      joinedAt = Date.now();
       player.load();
       player.play().catch(reconnect);
     }, 3000);
   }
   player.addEventListener('ended', reconnect);
   player.addEventListener('error', reconnect);
+
+  // This is a station, so play means what is on now. A browser left to
+  // itself keeps what it was sent while paused and carries on from there:
+  // the sound is then as far behind the name and the picture as the pause
+  // was long, and after a long pause it runs out, because Icecast has
+  // dropped a listener that stopped reading, and is cut off until the page
+  // has reconnected. So play after more than a short pause connects afresh.
+  // For the same reason the player does not preload: a browser that does
+  // connects when the page opens, and play pressed later starts from then.
+  // Connecting only on play also means that "listening now" counts
+  // listeners and not open pages.
+  const STALE_AFTER = 10000;
+  let mayRejoin = true;
+  player.addEventListener('play', () => {
+    if (pausedAt === null || !mayRejoin) return;
+    // Connecting sets off a "play" of its own, which must not connect again.
+    if (Date.now() - Math.max(pausedAt, joinedAt) < STALE_AFTER) return;
+    listening = true; // so that a connection that fails is tried again
+    joinedAt = Date.now();
+    player.load();
+    player.play().catch((e) => {
+      // A browser that will not let the page start the sound is left to
+      // resume in its own way from now on; the next press is the listener's.
+      if (!e || e.name !== 'NotAllowedError') return;
+      mayRejoin = false;
+      listening = false;
+      pausedAt = null;
+    });
+  });
 
   // Watching is the picture with nothing in front of it. Where a page can
   // be put in fullscreen that is what watching is, by the f key or by the
