@@ -33,9 +33,11 @@ for path in "$script" /viz-bloom.js /viz-sand.js /viz-reaction.js /viz-trace.js 
     esac
 done
 
-# The tab's icon, the home-screen icon and the cover a lock screen falls
-# back to.
-for path in /icon.svg /icon-32.png /icon-180.png /icon-512.png; do
+# The tab's icon, the home-screen icon, the cover a lock screen falls
+# back to, and the picture shown where a link to the station is passed on.
+card=$(printf '%s\n' "$page" | sed -n 's/.*property="og:image" content="[a-z]*:\/\/[^/"]*\([^"]*\)".*/\1/p')
+[ -n "$card" ] || fail "the page does not name the picture for a link to it"
+for path in /icon.svg /icon-32.png /icon-180.png /icon-512.png "$card"; do
     type=$(curl -s -o /dev/null -m 20 -w '%{content_type}' "$site$path" || true)
     case "$type" in
         image/*) ;;
