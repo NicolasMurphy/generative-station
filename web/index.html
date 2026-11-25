@@ -160,6 +160,7 @@
 <canvas id="viz-aurora" class="viz"></canvas>
 <canvas id="viz-pool" class="viz"></canvas>
 <canvas id="viz-magnet" class="viz"></canvas>
+<canvas id="viz-ink" class="viz"></canvas>
 <audio controls preload="none" src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <p id="caption" hidden></p>
@@ -608,12 +609,12 @@
   document.addEventListener('fullscreenchange', () => { stir(); holdScreen(); });
 </script>
 <script type="module">
-  // Eight visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool"
-  // and "magnet" need WebGPU; "rings" runs everywhere and is all a browser
-  // without WebGPU gets. The WebGPU ones draw the compound whether or not
-  // there is sound, so they are there when the page opens, and follow the
-  // stream from the first play on. "rings" draws the sound and nothing
-  // else, so it waits for the first play.
+  // Nine visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
+  // "magnet" and "ink" need WebGPU; "rings" runs everywhere and is all a
+  // browser without WebGPU gets. The WebGPU ones draw the compound whether
+  // or not there is sound, so they are there when the page opens, and
+  // follow the stream from the first play on. "rings" draws the sound and
+  // nothing else, so it waits for the first play.
   const audio = document.querySelector('audio');
   const visuals = {
     bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
@@ -623,10 +624,11 @@
     aurora: { canvas: document.getElementById('viz-aurora'), module: '/viz-aurora.js' },
     pool: { canvas: document.getElementById('viz-pool'), module: '/viz-pool.js' },
     magnet: { canvas: document.getElementById('viz-magnet'), module: '/viz-magnet.js' },
+    ink: { canvas: document.getElementById('viz-ink'), module: '/viz-ink.js' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
   // The order the switch steps through.
-  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet'] : []).concat(['rings']);
+  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink'] : []).concat(['rings']);
   let started = false; // the audio graph, with the first play
   let analyser = null;
   let current = null;
@@ -644,6 +646,7 @@
     aurora: 'each peak is a ray of light, low to high across the sky, taller the stronger',
     pool: 'each peak is a ripple on a pool, finer the higher the peak, and this is their light on its floor',
     magnet: 'each peak is a beam of ions that a magnet bends onto a plate, wider the higher the peak',
+    ink: 'each peak lets ink of its own colour into water, more of it the stronger the peak',
     rings: 'the sound itself, a bar for each part of it, red for low to blue for high',
   };
   const caption = document.getElementById('caption');
