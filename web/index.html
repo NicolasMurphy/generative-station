@@ -161,6 +161,7 @@
 <canvas id="viz-pool" class="viz"></canvas>
 <canvas id="viz-magnet" class="viz"></canvas>
 <canvas id="viz-ink" class="viz"></canvas>
+<canvas id="viz-ferro" class="viz"></canvas>
 <audio controls preload="none" src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <p id="caption" hidden></p>
@@ -609,8 +610,8 @@
   document.addEventListener('fullscreenchange', () => { stir(); holdScreen(); });
 </script>
 <script type="module">
-  // Nine visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
-  // "magnet" and "ink" need WebGPU; "rings" runs everywhere and is all a
+  // Ten visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
+  // "magnet", "ink" and "ferro" need WebGPU; "rings" runs everywhere and is all a
   // browser without WebGPU gets. The WebGPU ones draw the compound whether
   // or not there is sound, so they are there when the page opens, and
   // follow the stream from the first play on. "rings" draws the sound and
@@ -625,10 +626,11 @@
     pool: { canvas: document.getElementById('viz-pool'), module: '/viz-pool.js' },
     magnet: { canvas: document.getElementById('viz-magnet'), module: '/viz-magnet.js' },
     ink: { canvas: document.getElementById('viz-ink'), module: '/viz-ink.js' },
+    ferro: { canvas: document.getElementById('viz-ferro'), module: '/viz-ferro.js' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
   // The order the switch steps through.
-  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink'] : []).concat(['rings']);
+  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink', 'ferro'] : []).concat(['rings']);
   let started = false; // the audio graph, with the first play
   let analyser = null;
   let current = null;
@@ -647,6 +649,7 @@
     pool: 'each peak is a ripple on a pool, finer the higher the peak, and this is their light on its floor',
     magnet: 'each peak is a beam of ions that a magnet bends onto a plate, wider the higher the peak',
     ink: 'each peak lets ink of its own colour into water, more of it the stronger the peak',
+    ferro: 'each peak is a magnet under a dish of black fluid, which stands up in spikes over it',
     rings: 'the sound itself, a bar for each part of it, red for low to blue for high',
   };
   const caption = document.getElementById('caption');
