@@ -100,6 +100,10 @@
     text-decoration: underline dotted;
   }
   #visual-part:not([hidden]) + #watch-part::before { content: ' · '; }
+  /* The timer stands last, after whichever of the other two are there. */
+  #visual-part:not([hidden]) ~ #sleep-part::before,
+  #watch-part:not(.words-only) ~ #sleep-part::before,
+  html[data-visual] #watch-part ~ #sleep-part::before { content: ' · '; }
   /* Where the words can only be hidden, not the browser with them, there
      is nothing to offer until a picture is drawn behind them. */
   html:not([data-visual]) #watch-part.words-only { display: none; }
@@ -154,7 +158,7 @@
   <div>on air since 20 May 2026 · <b id="on-air"></b></div>
   <div id="run-line" hidden>this run · <b id="this-run"></b></div>
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
-  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span></div>
+  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span></div>
 </div>
 <div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
 <script>
@@ -420,6 +424,81 @@
       else if (!e || e.name !== 'AbortError') reconnect();
     });
   }, 1000);
+
+  // The station does not end, so someone who falls asleep to it is played
+  // to all night. The timer is how it is asked to stop by itself: each
+  // press asks for longer, 15 minutes, then 30, 60 and 90, and the one
+  // after that calls it off, as the sleep button of a clock radio does. The
+  // button counts down what is left. The sound is turned down over the last
+  // seconds, where a page is allowed to turn it (an iPhone keeps the volume
+  // to its own buttons, and there it simply stops), then paused like a
+  // listener's own pause: the screen is let go to sleep too, and the next
+  // play is what is on then.
+  const SLEEP_MINUTES = [15, 30, 60, 90];
+  const SLEEP_FADE = 20000;
+  const sleepSwitch = byId('sleep-switch');
+  let sleepStep = -1;    // which of SLEEP_MINUTES was asked for, if any
+  let sleepAt = null;    // when the sound is to stop
+  let sleepTimer = null;
+  let fadedFrom = null;  // the listener's volume, while it is turned down
+  function showSleep() {
+    const s = sleepAt === null ? 0 : Math.max(0, Math.ceil((sleepAt - Date.now()) / 1000));
+    const says = sleepAt === null ? 'sleep timer' : 'sleep ' + Math.floor(s / 60) + ':' + two(s % 60);
+    if (sleepSwitch.textContent !== says) sleepSwitch.textContent = says;
+  }
+  function endFade() {
+    if (fadedFrom === null) return;
+    player.volume = fadedFrom;
+    fadedFrom = null;
+  }
+  function tickSleep() {
+    if (sleepAt === null) return;
+    const left = sleepAt - Date.now();
+    if (left > 0) {
+      if (left >= SLEEP_FADE || player.paused) {
+        endFade();
+      } else {
+        if (fadedFrom === null) fadedFrom = player.volume;
+        // Slowly at first, as an ear hears it.
+        try { player.volume = fadedFrom * Math.pow(left / SLEEP_FADE, 2); } catch (e) {}
+      }
+      showSleep();
+      return;
+    }
+    setSleep(-1, true);
+    // Nothing the page does by itself may bring the sound back: not a
+    // reconnection that is waiting its turn because the stream has just
+    // ended (which leaves the player paused already), nor one set off by
+    // an error that arrives later.
+    if (listening || !player.paused) pausedAt = Date.now();
+    listening = false;
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    if (!player.paused) player.pause();
+  }
+  function setSleep(step, asleep) {
+    sleepStep = step;
+    sleepAt = step < 0 ? null : Date.now() + SLEEP_MINUTES[step] * 60000;
+    clearInterval(sleepTimer);
+    sleepTimer = sleepAt === null ? null : setInterval(tickSleep, 200);
+    // The volume is the listener's again at once, except where the sound
+    // has just been turned all the way down to be stopped: there it is
+    // given back once the sound has stopped, so that it is not heard.
+    if (asleep) setTimeout(endFade, 500);
+    else endFade();
+    showSleep();
+  }
+  function stepSleep() {
+    setSleep(sleepStep + 1 < SLEEP_MINUTES.length ? sleepStep + 1 : -1);
+  }
+  // A page that is out of sight may have its timers held back. The player
+  // tells its own time for as long as it plays, so the timer is looked at
+  // then too, and the sound does not run on past it.
+  player.addEventListener('timeupdate', tickSleep);
+  sleepSwitch.addEventListener('click', stepSleep);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) stepSleep();
+  });
 
   // Watching is the picture with nothing in front of it. Where a page can
   // be put in fullscreen that is what watching is, by the f key or by the

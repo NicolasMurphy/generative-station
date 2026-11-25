@@ -45,6 +45,8 @@ The player connects to the stream when play is pressed, not when the page opens,
 
 If the connection dies while someone is listening, the page connects again by itself. That includes the death nothing reports: a connection that goes quiet without being closed, as when a phone is out of signal for so long that the server gives it up and the word never arrives. A browser left to itself then shows a playing player over silence for good. The page notices that the player has been waiting for the stream for ten seconds and joins it afresh.
 
+The station does not end, so there is a **sleep timer** for someone who falls asleep to it. Each press of it (or of **s**) asks for longer, 15 minutes, then 30, 60 and 90, and one more calls it off; the button counts down what is left. The sound is turned down over the last twenty seconds, where a page may turn it (an iPhone keeps the volume to its own buttons, so there it simply stops), and is then paused, which also lets go of a screen that was being kept awake. Nothing the page does by itself brings the sound back afterwards, a reconnection included; the next play does, with what is on then.
+
 A link to the station, passed on in a chat or a post, is shown with a line about what the station is and a picture: the figure the trace visual draws of choline (`web/share.png`).
 
 What is playing is also told to the device, so a phone's lock screen and a desktop's media controls show the compound's name. Its cover is the compound's own spectrum: the voiced peaks from low to high, each as tall as it is strong.
