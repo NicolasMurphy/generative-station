@@ -100,6 +100,12 @@
     text-decoration: underline dotted;
   }
   #visual-part:not([hidden]) + #watch-part::before { content: ' · '; }
+  /* A phone has no room for all four on one line: the two that are about
+     the picture keep a line to themselves. */
+  @media (max-width: 640px) {
+    #visual-part:not([hidden]) { display: block; }
+    #visual-part:not([hidden]) + #watch-part::before { content: none; }
+  }
   /* The timer stands last, after whichever of the other two are there. */
   #visual-part:not([hidden]) ~ #sleep-part::before,
   #watch-part:not(.words-only) ~ #sleep-part::before,
@@ -107,6 +113,9 @@
   /* Where the words can only be hidden, not the browser with them, there
      is nothing to offer until a picture is drawn behind them. */
   html:not([data-visual]) #watch-part.words-only { display: none; }
+  @media (max-width: 640px) {
+    html:not([data-visual]) #watch-part.words-only ~ #sleep-part::before { content: none; }
+  }
   /* A key is no use where there is no keyboard. */
   @media (hover: none) {
     .key { display: none; }
@@ -158,7 +167,7 @@
   <div>on air since 20 May 2026 · <b id="on-air"></b></div>
   <div id="run-line" hidden>this run · <b id="this-run"></b></div>
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
-  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span></div>
+  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span> · <button id="tour-switch" type="button" title="change the visual by itself every five minutes">tour</button><span class="key"> (t)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span></div>
 </div>
 <div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
 <script>
@@ -689,7 +698,10 @@
         handle.stop();
         handle = null;
         visuals[current].canvas.style.opacity = '0';
-        nowShowing(null);
+        // The page is not told that nothing is drawn: the next picture is
+        // on its way, and for someone watching the words would come back
+        // into it for the moment between the two.
+        current = null;
       }
       const visual = visuals[name];
       const { start } = await import(visual.module);
@@ -707,6 +719,7 @@
       requestAnimationFrame(() => { visual.canvas.style.opacity = '1'; });
     } catch (e) {
       console.warn('the "' + name + '" visual could not start:', e);
+      nowShowing(null);
       // Not offered again, or the switch would keep coming back to it.
       if (name !== 'rings' && order.includes(name)) order.splice(order.indexOf(name), 1);
       switching = false;
@@ -716,15 +729,97 @@
     }
   }
 
+  // The visual after the one that is showing, among those given, if there
+  // is another.
+  function after(among) {
+    if (!among.length) return null;
+    const next = among[(among.indexOf(current || first) + 1) % among.length];
+    return next === current ? null : next;
+  }
+  function change(next) {
+    if (switching || !next) return;
+    try { localStorage.setItem('gs-visual', next); } catch (e) {}
+    tourLeft = TOUR_EVERY; // a visual chosen by hand is given its full time too
+    showTour();
+    return show(next);
+  }
+  const drawn = () => order.filter((name) => name !== 'rings');
   function switchVisual() {
     // Before the first play there is nothing for "rings" to draw.
-    const offered = analyser ? order : order.filter((name) => name !== 'rings');
-    if (switching || !offered.length) return;
-    const next = offered[(offered.indexOf(current || first) + 1) % offered.length];
-    if (next === current) return;
-    try { localStorage.setItem('gs-visual', next); } catch (e) {}
-    show(next);
+    change(after(analyser ? order : drawn()));
   }
+
+  // There are more pictures than anyone finds by pressing the switch, and
+  // someone watching does not press anything: the station on a screen
+  // across the room stays on the picture it was left on. The tour changes
+  // it for them. While it is on, the page moves to the next visual by
+  // itself every five minutes, in the order the switch steps through, and
+  // the button counts down to the next. It goes round the visuals that
+  // draw the compound and passes over "rings", which draws the sound and
+  // would be an empty screen for as long as the station is paused. Only
+  // time the picture is there to be seen counts, so a page left in the
+  // background comes back to the visual it had. The old picture is faded
+  // out while it still moves, which a change made by hand does not wait
+  // for. The words stay away: someone watching asked for the picture, and
+  // a move or a tap says what it now is. It is remembered like the visual
+  // itself.
+  const TOUR_EVERY = 5 * 60000;
+  const TOUR_FADE = 1800; // what the style sheet gives a canvas to fade
+  const tourSwitch = document.getElementById('tour-switch');
+  let touring = false;
+  let tourLeft = TOUR_EVERY; // of looking, until the next visual
+  let tourLooked = 0;        // when the tour last looked at the time
+  let tourTimer = null;
+  let tourMoving = false;    // the old picture is fading out
+  function showTour() {
+    const s = Math.max(0, Math.ceil(tourLeft / 1000));
+    const says = touring
+      ? 'next in ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')
+      : 'tour';
+    if (tourSwitch.textContent !== says) tourSwitch.textContent = says;
+  }
+  async function tourOn() {
+    const from = current;
+    tourMoving = true;
+    try {
+      visuals[from].canvas.style.opacity = '0';
+      await new Promise((resolve) => setTimeout(resolve, TOUR_FADE));
+      // Unless it was called off meanwhile, or the picture changed by hand.
+      if (touring && current === from) await change(after(drawn()));
+    } finally {
+      tourMoving = false;
+      // Whatever came of it, a picture that is still there is seen again.
+      if (current === from && handle) visuals[from].canvas.style.opacity = '1';
+    }
+  }
+  function tickTour() {
+    const now = performance.now();
+    const looked = Math.min(now - tourLooked, 1500);
+    tourLooked = now;
+    if (document.hidden || !current || switching || tourMoving) return;
+    tourLeft -= looked;
+    if (tourLeft <= 0) {
+      tourLeft = TOUR_EVERY;
+      // Where there is no other visual to show, this one stays.
+      if (after(drawn())) tourOn();
+    }
+    showTour();
+  }
+  function setTour(on, remember) {
+    touring = on;
+    tourLeft = TOUR_EVERY;
+    tourLooked = performance.now();
+    clearInterval(tourTimer);
+    tourTimer = on ? setInterval(tickTour, 500) : null;
+    if (remember) {
+      try {
+        if (on) localStorage.setItem('gs-tour', '1');
+        else localStorage.removeItem('gs-tour');
+      } catch (e) {}
+    }
+    showTour();
+  }
+  try { if (navigator.gpu && localStorage.getItem('gs-tour')) setTour(true, false); } catch (e) {}
 
   // The picture is there before the sound, except for someone who has asked
   // their device for less motion: they get it with the first play, as
@@ -756,8 +851,11 @@
   // Only offer the switch where there is something to switch to.
   document.getElementById('visual-part').hidden = !navigator.gpu;
   document.getElementById('visual-switch').addEventListener('click', switchVisual);
+  tourSwitch.addEventListener('click', () => setTour(!touring, true));
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey && navigator.gpu) switchVisual();
+    if (e.ctrlKey || e.metaKey || e.altKey || !navigator.gpu) return;
+    if (e.key === 'v') switchVisual();
+    if (e.key === 't') setTour(!touring, true);
   });
 </script>
 </body>
