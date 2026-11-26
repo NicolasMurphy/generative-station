@@ -220,6 +220,7 @@
 <canvas id="viz-ink" class="viz"></canvas>
 <canvas id="viz-ferro" class="viz"></canvas>
 <canvas id="viz-crystal" class="viz"></canvas>
+<canvas id="viz-jellyfish" class="viz"></canvas>
 <audio controls preload="none" src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <p id="caption" hidden></p>
@@ -786,8 +787,8 @@
   document.addEventListener('fullscreenchange', () => { stir(); holdScreen(); });
 </script>
 <script type="module">
-  // Eleven visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
-  // "magnet", "ink", "ferro" and "crystal" need WebGPU; "rings" runs everywhere
+  // Twelve visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
+  // "magnet", "ink", "ferro", "crystal" and "jellyfish" need WebGPU; "rings" runs everywhere
   // and is all a browser without WebGPU gets. The WebGPU ones draw the compound whether
   // or not there is sound, so they are there when the page opens, and
   // follow the stream from the first play on. "rings" draws the sound and
@@ -804,10 +805,11 @@
     ink: { canvas: document.getElementById('viz-ink'), module: '/viz-ink.js' },
     ferro: { canvas: document.getElementById('viz-ferro'), module: '/viz-ferro.js' },
     crystal: { canvas: document.getElementById('viz-crystal'), module: '/viz-crystal.js' },
+    jellyfish: { canvas: document.getElementById('viz-jellyfish'), module: '/viz-jellyfish.js' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
   // The order the switch steps through.
-  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink', 'ferro', 'crystal'] : []).concat(['rings']);
+  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink', 'ferro', 'crystal', 'jellyfish'] : []).concat(['rings']);
   let started = false; // the audio graph, with the first play
   let analyser = null;
   let current = null;
@@ -828,6 +830,7 @@
     ink: 'each peak lets ink of its own colour into water, more of it the stronger the peak',
     ferro: 'each peak is a magnet under a dish of black fluid, which stands up in spikes over it',
     crystal: 'each peak seeds crystals of its own colour, seen as a microscope shows them in polarised light',
+    jellyfish: 'each peak is a kind of jellyfish, larger and slower the lower the peak, more of them the stronger',
     rings: 'the sound itself, a bar for each part of it, red for low to blue for high',
   };
   const caption = document.getElementById('caption');
