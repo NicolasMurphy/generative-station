@@ -25,7 +25,7 @@ esac
 
 script=$(printf '%s\n' "$page" | sed -n 's/.*"three": "\([^"]*\)".*/\1/p')
 [ -n "$script" ] || fail "the page does not name its visualiser script"
-for path in "$script" /viz-bloom.js /viz-sand.js /viz-reaction.js /viz-trace.js /viz-aurora.js /viz-pool.js /viz-magnet.js /viz-ink.js /viz-ferro.js /viz-crystal.js /viz-jellyfish.js /viz-rings.js; do
+for path in "$script" /viz-bloom.js /viz-sand.js /viz-reaction.js /viz-trace.js /viz-aurora.js /viz-pool.js /viz-magnet.js /viz-ink.js /viz-ferro.js /viz-crystal.js /viz-jellyfish.js /viz-loom.js /viz-rings.js; do
     type=$(curl -s -o /dev/null -m 60 -w '%{content_type}' "$site$path" || true)
     case "$type" in
         *javascript*) ;;
