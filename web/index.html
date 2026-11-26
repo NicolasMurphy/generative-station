@@ -104,6 +104,26 @@
     cursor: pointer;
     text-decoration: underline dotted;
   }
+  /* The visuals by name, for choosing one. They stand above the button
+     that asks for them, so nothing moves from under a finger, and each is
+     given some height: they are pressed with a thumb, one beside another. */
+  #visual-list {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 1.1em;
+    max-width: calc(100vw - 3rem);
+    line-height: 1.5;
+    /* two names pressed quickly are two presses, not a phone's zoom */
+    touch-action: manipulation;
+  }
+  #visual-list[hidden] { display: none; }
+  #status #visual-list button { padding: 0.45em 0; }
+  /* the one that is showing is not a thing to press */
+  #status #visual-list button[aria-current] {
+    color: #eee;
+    text-decoration: none;
+    cursor: default;
+  }
   #visual-part:not([hidden]) + #watch-part::before { content: ' · '; }
   /* A phone has no room for all five on one line: the two that are about
      the picture keep a line to themselves. */
@@ -228,7 +248,8 @@
   <div>on air since 20 May 2026 · <b id="on-air"></b></div>
   <div id="run-line" hidden>this run · <b id="this-run"></b></div>
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
-  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span> · <button id="tour-switch" type="button" title="change the visual by itself every five minutes">tour</button><span class="key"> (t)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span><span id="about-part" hidden><button id="about-switch" type="button" title="what the station is, and where its notes come from">about</button><span class="key"> (a)</span></span></div>
+  <div id="visual-list" hidden></div>
+  <div><span id="visual-part" hidden><button id="visual-switch" type="button" title="choose a visual by name" aria-expanded="false" aria-controls="visual-list">change visual</button><span class="key"> (v)</span> · <button id="tour-switch" type="button" title="change the visual by itself every five minutes">tour</button><span class="key"> (t)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span><span id="about-part" hidden><button id="about-switch" type="button" title="what the station is, and where its notes come from">about</button><span class="key"> (a)</span></span></div>
 </div>
 <div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
 <dialog id="about" aria-labelledby="about-title">
@@ -734,6 +755,8 @@
     clearTimeout(idleTimer);
     idleTimer = null;
     root.classList.add('idle');
+    // What was open among the words is put away with them.
+    window.dispatchEvent(new Event('station-settle'));
   }
   function stir() {
     if (root.classList.contains('idle')) {
@@ -815,6 +838,7 @@
   let current = null;
   let handle = null;
   let switching = false;
+  let heading = null; // the visual last set out for, which may be on its way
   // What each picture is of. The pictures are drawn from the compound, and
   // nothing in them says so: a ring, a ray or a swing of the pen is one of
   // the peaks counted beside the compound's name. So the page says it, under
@@ -846,6 +870,7 @@
       caption.textContent = '';
       caption.append(called, ' · ' + captions[name]);
     }
+    tellList();
   }
 
   // What a visual is given to listen with. A browser only allows the audio
@@ -880,6 +905,7 @@
   async function show(name) {
     if (switching) return;
     switching = true;
+    heading = name;
     try {
       if (handle) {
         handle.stop();
@@ -903,7 +929,12 @@
         },
       });
       nowShowing(name);
-      requestAnimationFrame(() => { visual.canvas.style.opacity = '1'; });
+      // Unless it has been left again already, as when names are pressed
+      // one straight after another: a picture that has stopped would be
+      // brought back to lie over the one that is drawing.
+      requestAnimationFrame(() => {
+        if (current === name) visual.canvas.style.opacity = '1';
+      });
     } catch (e) {
       console.warn('the "' + name + '" visual could not start:', e);
       nowShowing(null);
@@ -931,10 +962,68 @@
     return show(next);
   }
   const drawn = () => order.filter((name) => name !== 'rings');
+  // Before the first play there is nothing for "rings" to draw.
+  const offered = () => (analyser ? order : drawn());
   function switchVisual() {
-    // Before the first play there is nothing for "rings" to draw.
-    change(after(analyser ? order : drawn()));
+    change(after(offered()));
   }
+
+  // Stepping was enough for two visuals. With twelve it is a long way
+  // round: the one before this is eleven presses off, each of which starts
+  // a picture only to leave it, and nothing says how many there are or what
+  // they are called. So the button lists them by name, and a press on a
+  // name goes there. The list stays while one after another is tried, with
+  // the picture changing behind it, and is put away by the button, by
+  // Escape, by a press anywhere beside the words, or with the words when
+  // they leave someone who is watching. The v key still steps.
+  const visualList = document.getElementById('visual-list');
+  const visualSwitch = document.getElementById('visual-switch');
+  let asked = null; // a name pressed while another picture was on its way
+  function tellList() {
+    if (visualList.hidden) return;
+    const names = offered().join(' ');
+    if (visualList.dataset.names !== names) {
+      visualList.dataset.names = names;
+      visualList.textContent = '';
+      offered().forEach((name) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = name;
+        button.title = captions[name];
+        visualList.append(button);
+      });
+    }
+    // The one a press has asked for is marked at once, before it is drawn.
+    const marked = asked || current || heading;
+    for (const button of visualList.children) {
+      if (button.textContent === marked) button.setAttribute('aria-current', 'true');
+      else button.removeAttribute('aria-current');
+    }
+  }
+  function setList(open) {
+    visualList.hidden = !open;
+    visualSwitch.setAttribute('aria-expanded', String(open));
+    tellList();
+  }
+  async function choose(name) {
+    asked = name;
+    tellList();
+    // A picture that is on its way is let arrive. Of the names pressed
+    // meanwhile, the last is the one that is wanted.
+    while (switching) await new Promise((resolve) => setTimeout(resolve, 100));
+    if (asked !== name) return;
+    asked = null;
+    if (name !== current && offered().includes(name)) await change(name);
+    tellList();
+  }
+  visualList.addEventListener('click', (e) => {
+    if (e.target !== visualList) choose(e.target.textContent);
+  });
+  window.addEventListener('pointerdown', (e) => {
+    const among = e.target instanceof Element && e.target.closest('#status');
+    if (!visualList.hidden && !among) setList(false);
+  });
+  window.addEventListener('station-settle', () => setList(false));
 
   // There are more pictures than anyone finds by pressing the switch, and
   // someone watching does not press anything: the station on a screen
@@ -1033,16 +1122,18 @@
     analyser.connect(audioCtx.destination);
 
     if (!current) await show(order.includes(first) ? first : 'rings');
+    tellList(); // "rings" can be asked for from now on
   });
 
   // Only offer the switch where there is something to switch to.
   document.getElementById('visual-part').hidden = !navigator.gpu;
-  document.getElementById('visual-switch').addEventListener('click', switchVisual);
+  visualSwitch.addEventListener('click', () => setList(visualList.hidden));
   tourSwitch.addEventListener('click', () => setTour(!touring, true));
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || !navigator.gpu) return;
     if (e.key === 'v') switchVisual();
     if (e.key === 't') setTour(!touring, true);
+    if (e.key === 'Escape') setList(false);
   });
 </script>
 </body>
