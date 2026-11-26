@@ -26,6 +26,8 @@ The percussion's kick ducks the other voices through a sidechain, and everything
 
 When a compound is generated on [mass-spectrum-to-audio-converter](https://github.com/NicolasMurphy/mass-spectrum-to-audio-converter), it POSTs the spectrum's frequencies and amplitudes to a webhook on this server. A small Flask sidecar (`picker`) validates the payload, debounces incoming events, and forwards them via OSC to SuperCollider. The voices then pull their pitch material from that compound's mass spectrum. Each event plays the spectrum as a chord, one sine per peak, so only the 32 strongest peaks are voiced and peaks more than 40 dB below the strongest are skipped.
 
+Every compound also has a **call**, the one thing the station plays that is the same each time. It is the compound's strongest peaks one at a time, strongest first, as single soft notes: five at most, a weaker peak a quieter note that is followed sooner, so the call falls away as it goes. The notes are the compound's own frequencies moved up or down by whole octaves, to sit above the other voices. A station says what it is every so often, and this is how this one does: the call is the first thing heard of a compound, a moment after it arrives, and it comes round again every 8 to 16 minutes for as long as the compound stays.
+
 [Architecture Diagrams](https://mass-spectrum-to-audio-converter.onrender.com/architecture.html)
 
 **Tech Stack:**

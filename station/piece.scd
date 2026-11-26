@@ -149,6 +149,9 @@ s.waitForBoot({
             };
             ("[piece] compound: " ++ name ++ " (" ++ n ++ " peaks, "
                 ++ keep.size ++ " voiced)").postln;
+            if(~announceCompound.notNil) {
+                ~announceCompound.();
+            };
         };
     }, "/compound");
 
@@ -159,6 +162,7 @@ s.waitForBoot({
     (here +/+ "sweeps.scd").load;
     (here +/+ "bass.scd").load;
     (here +/+ "percussion.scd").load;
+    (here +/+ "call.scd").load;
 
     // A file with a syntax error does not throw when loaded. It prints the
     // error and leaves its setup function undefined, and calling nil does
@@ -168,7 +172,7 @@ s.waitForBoot({
         \swells -> ~setupSwells, \lowplucks -> ~setupLowPlucks,
         \plucks -> ~setupPlucks, \clicks -> ~setupClicks,
         \sweeps -> ~setupSweeps, \bass -> ~setupBass,
-        \percussion -> ~setupPercussion
+        \percussion -> ~setupPercussion, \call -> ~setupCall
     ].do { |voice|
         if(voice.value.isNil) {
             Error(voice.key ++ ".scd did not load, see the error above").throw;
@@ -182,6 +186,7 @@ s.waitForBoot({
     ~setupSweeps.();
     ~setupBass.();
     ~setupPercussion.();
+    ~setupCall.();
 
     ~masterSynth = Synth(\masterOut, [
         \in, ~masterBus,

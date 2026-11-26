@@ -48,6 +48,7 @@ services:
       - ./station/sweeps.scd:/app/sweeps.scd:ro
       - ./station/bass.scd:/app/bass.scd:ro
       - ./station/percussion.scd:/app/percussion.scd:ro
+      - ./station/call.scd:/app/call.scd:ro
 
   caddy:
     image: caddy:2-alpine
