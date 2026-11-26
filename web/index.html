@@ -80,9 +80,11 @@
     color: #8a8a8a;
   }
   #credit a { color: #ccc; }
-  /* On a phone the two would share a line and collide: the credit keeps
-     the bottom line and the status sits just above it. */
-  @media (max-width: 640px) {
+  /* On a phone the two would share a line and collide, and so would they
+     in a window too narrow for the status's last line and the credit side
+     by side: the credit keeps the bottom line and the status sits just
+     above it. */
+  @media (max-width: 960px) {
     #status { bottom: calc(1.25rem + 1.4rem); }
   }
   #visits span {
@@ -103,7 +105,7 @@
     text-decoration: underline dotted;
   }
   #visual-part:not([hidden]) + #watch-part::before { content: ' · '; }
-  /* A phone has no room for all four on one line: the two that are about
+  /* A phone has no room for all five on one line: the two that are about
      the picture keep a line to themselves. */
   @media (max-width: 640px) {
     #visual-part:not([hidden]) { display: block; }
@@ -118,6 +120,49 @@
   html:not([data-visual]) #watch-part.words-only { display: none; }
   @media (max-width: 640px) {
     html:not([data-visual]) #watch-part.words-only ~ #sleep-part::before { content: none; }
+  }
+  #about-part::before { content: ' · '; }
+  /* What the station is, for someone who has just arrived at it: it lies
+     over the picture, which goes on behind it. */
+  #about {
+    box-sizing: border-box;
+    width: 36rem;
+    max-width: calc(100% - 1.5rem);
+    max-height: calc(100% - 1.5rem);
+    padding: 0;
+    border: 1px solid #333;
+    background: rgba(17, 17, 17, 0.9);
+    color: #aaa;
+    font-size: 0.85rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+    overscroll-behavior: contain;
+  }
+  /* a browser that does not know the element would show its words */
+  #about:not([open]) { display: none; }
+  #about::backdrop { background: rgba(0, 0, 0, 0.3); }
+  #about-words { padding: 1.1rem 1.4rem 1.2rem; }
+  #about h2 { margin: 0 0 0.8rem; font-size: 1rem; font-weight: normal; color: #eee; }
+  #about p { margin: 0 0 0.9rem; }
+  #about b { color: #eee; font-weight: normal; }
+  #about a { color: #ccc; }
+  #about figure { margin: 0 0 0.9rem; }
+  #about canvas { display: block; width: 100%; height: 7.5rem; }
+  #about-range { display: flex; justify-content: space-between; font-size: 0.75rem; color: #777; }
+  #about-range.one { justify-content: center; }
+  #about figcaption { margin-top: 0.5rem; }
+  #about .small { font-size: 0.75rem; color: #888; }
+  #about-close {
+    float: right;
+    /* more to press than the word itself */
+    margin: -0.4rem -0.4rem 0.1rem 0.6rem;
+    padding: 0.4rem;
+    font: inherit;
+    color: #ccc;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-decoration: underline dotted;
   }
   /* A key is no use where there is no keyboard. */
   @media (hover: none) {
@@ -138,6 +183,15 @@
     transition-duration: 1.5s;
   }
   html.idle[data-visual], html.idle[data-visual] * { cursor: none; }
+  /* The page's other words would show through what it says about itself,
+     so they step back while that is read, and only the picture is behind. */
+  html.reading audio,
+  html.reading #compound,
+  html.reading #caption,
+  html.reading #status,
+  html.reading #credit {
+    opacity: 0;
+  }
   /* What cannot be seen cannot be pressed, and the tap that brings the
      words back does not also land on whatever is under it. */
   html.idle[data-visual] audio, html.waking[data-visual] audio,
@@ -173,9 +227,25 @@
   <div>on air since 20 May 2026 · <b id="on-air"></b></div>
   <div id="run-line" hidden>this run · <b id="this-run"></b></div>
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
-  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span> · <button id="tour-switch" type="button" title="change the visual by itself every five minutes">tour</button><span class="key"> (t)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span></div>
+  <div><span id="visual-part" hidden><button id="visual-switch" type="button">change visual</button><span class="key"> (v)</span> · <button id="tour-switch" type="button" title="change the visual by itself every five minutes">tour</button><span class="key"> (t)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span><span id="about-part" hidden><button id="about-switch" type="button" title="what the station is, and where its notes come from">about</button><span class="key"> (a)</span></span></div>
 </div>
 <div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
+<dialog id="about" aria-labelledby="about-title">
+  <div id="about-words">
+    <button id="about-close" type="button">close</button>
+    <h2 id="about-title">generative-station</h2>
+    <p>Music that is made as it plays and does not end. None of it is a recording: a program is playing this now, and will not play it the same way again.</p>
+    <p>Its notes come from a chemical compound. A mass spectrometer breaks a compound into pieces and weighs them, and what it finds is a row of peaks: one for each weight of piece, taller the more pieces there were of that weight. Every peak is made a pitch, louder the taller it is, and the station's voices take their notes from those. The pictures are drawn from the same peaks.</p>
+    <figure id="about-figure" hidden>
+      <canvas id="about-spectrum"></canvas>
+      <div id="about-range"><span id="about-low"></span><span id="about-high"></span></div>
+      <figcaption id="about-playing"></figcaption>
+    </figure>
+    <p id="about-none">It has no compound at the moment, so its voices are choosing their own notes.</p>
+    <p>The compound is the last one that somebody turned into sound with the <a href="https://mass-spectrum-to-audio-converter.onrender.com" target="_blank" rel="noopener">mass spectrum to audio converter</a>. Choose one there and within a minute the station is playing it, for everyone who is listening. The word after the compound's name on this page (linear, inverse or modulo) is the rule that was chosen there for turning weights into pitches.</p>
+    <p class="small">The spectra are from <a href="https://github.com/MassBank/MassBank-data/releases/tag/2025.05.1" target="_blank" rel="noopener">MassBank</a>, © the MassBank consortium, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. How the station is made is <a href="https://github.com/NicolasMurphy/generative-station" target="_blank" rel="noopener">on GitHub</a>.</p>
+  </div>
+</dialog>
 <script>
   // The day of the first commit. "This run" is how long the current stream
   // has been up; it starts again whenever the station restarts.
@@ -207,10 +277,21 @@
     byId('visits-line').hidden = false;
   }
 
-  // The cover a phone or a desktop shows next to what is playing: the
-  // compound's own spectrum, the peaks the station voices (the same rule as
-  // piece.scd), low to high from left to right, a peak's height its
-  // strength, in the colours the visuals give them.
+  // The peaks the station voices of a compound, strongest first: the same
+  // rule as piece.scd, which leaves out a peak more than 40 dB below the
+  // strongest and plays 32 at most.
+  function voicedPeaks(c) {
+    const freqs = c && Array.isArray(c.frequencies) ? c.frequencies : [];
+    const amps = c && Array.isArray(c.amplitudes) ? c.amplitudes : [];
+    const peaks = freqs.map((f, i) => ({ f, a: amps[i] })).filter((p) => p.f > 0 && p.a > 0);
+    const top = Math.max(0, ...peaks.map((p) => p.a));
+    return peaks.filter((p) => p.a >= top * 0.01).sort((p, q) => q.a - p.a).slice(0, 32);
+  }
+
+  // A compound's spectrum as one is drawn: the voiced peaks low to high from
+  // left to right, a peak's height its strength, in the colours the visuals
+  // give them. It is the cover a phone or a desktop shows next to what is
+  // playing, and the figure in what the page says about itself.
   const COVER = 512;
   const COVER_COLOURS = [[255, 71, 31], [243, 255, 104], [56, 255, 102], [73, 255, 255], [46, 102, 255]];
   function coverColour(x) {
@@ -220,35 +301,18 @@
     const b = COVER_COLOURS[i + 1];
     return 'rgb(' + a.map((v, k) => Math.round(v + (b[k] - v) * (at - i))).join(',') + ')';
   }
-  function drawCover(c) {
-    const freqs = Array.isArray(c.frequencies) ? c.frequencies : [];
-    const amps = Array.isArray(c.amplitudes) ? c.amplitudes : [];
-    let peaks = freqs.map((f, i) => ({ f, a: amps[i] })).filter((p) => p.f > 0 && p.a > 0);
-    const top = Math.max(0, ...peaks.map((p) => p.a));
-    if (!peaks.length) return null;
-    peaks = peaks.filter((p) => p.a >= top * 0.01).sort((p, q) => q.a - p.a).slice(0, 32);
+  function drawPeaks(g, peaks, left, right, floor, tallest, width, glow = 2 * width) {
+    const top = peaks[0].a;
     const logs = peaks.map((p) => Math.log(p.f));
     const lo = Math.min(...logs);
     const span = Math.max(...logs) - lo;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = COVER;
-    const g = canvas.getContext('2d');
-    g.fillStyle = '#111';
-    g.fillRect(0, 0, COVER, COVER);
-    const left = 72;
-    const right = COVER - 72;
-    const floor = 404;
-    const tallest = 296;
-    g.fillStyle = '#2a2a2a';
-    g.fillRect(left - 24, floor + 14, right - left + 48, 2);
     g.lineCap = 'round';
-    g.lineWidth = Math.min(14, Math.max(4, 150 / peaks.length));
-    g.shadowBlur = 2 * g.lineWidth;
+    g.lineWidth = width;
+    g.shadowBlur = glow;
     // Peaks that lie close together run into one another, as they do in a
     // drawn mass spectrum. The weakest are drawn first, so that a strong
     // peak is not hidden behind its neighbours.
-    peaks.reverse().forEach((p) => {
+    peaks.slice().reverse().forEach((p) => {
       const x = span > 0 ? (Math.log(p.f) - lo) / span : 0.5;
       const at = left + x * (right - left);
       g.strokeStyle = g.shadowColor = coverColour(x);
@@ -257,6 +321,21 @@
       g.lineTo(at, floor - Math.max(4, tallest * Math.sqrt(p.a / top)));
       g.stroke();
     });
+  }
+  function drawCover(c) {
+    const peaks = voicedPeaks(c);
+    if (!peaks.length) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = COVER;
+    const g = canvas.getContext('2d');
+    g.fillStyle = '#111';
+    g.fillRect(0, 0, COVER, COVER);
+    const left = 72;
+    const right = COVER - 72;
+    const floor = 404;
+    g.fillStyle = '#2a2a2a';
+    g.fillRect(left - 24, floor + 14, right - left + 48, 2);
+    drawPeaks(g, peaks, left, right, floor, 296, Math.min(14, Math.max(4, 150 / peaks.length)));
     return canvas.toDataURL('image/png');
   }
 
@@ -305,6 +384,7 @@
         stir(); // someone watching in fullscreen is shown the new name
       }
       announce(c);
+      tellAbout();
       byId('listeners-line').hidden = typeof d.listeners !== 'number';
       if (typeof d.listeners === 'number') byId('listeners').textContent = d.listeners;
       showVisits(d.visits);
@@ -515,6 +595,97 @@
     if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) stepSleep();
   });
 
+  // Someone who arrives here is given a player, a compound's name and a
+  // picture, and nothing that says what any of it is. So the page can be
+  // asked (the button, or the a key): what the station is, where its notes
+  // come from, and that the compound is anyone's to choose. What it says of
+  // the compound that is playing is that compound's own spectrum, drawn as
+  // the cover is, and it is kept up while it is being read. The links open
+  // beside the page, or following one would stop the sound.
+  const about = byId('about');
+  const aboutSwitch = byId('about-switch');
+  let aboutTold = null; // what the figure was last drawn of, and how wide
+  function tellAbout() {
+    if (!about.open) return;
+    const c = (window.stationStats && window.stationStats.compound) || null;
+    const peaks = voicedPeaks(c);
+    const canvas = byId('about-spectrum');
+    byId('about-figure').hidden = !peaks.length;
+    byId('about-none').hidden = peaks.length > 0;
+    const told = peaks.length
+      ? [c.name, c.accession, c.n_peaks, c.frequencies[0], canvas.clientWidth, canvas.clientHeight].join('|')
+      : '';
+    if (told === aboutTold) return;
+    aboutTold = told;
+    if (!peaks.length) return;
+
+    const scale = Math.min(3, window.devicePixelRatio || 1);
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    const g = canvas.getContext('2d');
+    g.scale(scale, scale);
+    g.fillStyle = '#2a2a2a';
+    g.fillRect(0, h - 2, w, 2);
+    const stroke = Math.min(8, Math.max(3, 110 / peaks.length));
+    // The glow is counted in the canvas's own dots, whatever the scale.
+    drawPeaks(g, peaks, 18, w - 18, h - 12, h - 32, stroke, 2 * stroke * scale);
+
+    const pitches = peaks.map((p) => p.f);
+    const hz = (f) => (f < 100 ? Math.round(f * 10) / 10 : Math.round(f)) + ' Hz';
+    const low = hz(Math.min(...pitches));
+    const high = hz(Math.max(...pitches));
+    byId('about-low').textContent = low;
+    byId('about-high').textContent = low === high ? '' : high;
+    byId('about-range').classList.toggle('one', low === high);
+
+    const all = Array.isArray(c.frequencies) ? c.frequencies.length : peaks.length;
+    const name = document.createElement('b');
+    name.textContent = c.name;
+    const says = byId('about-playing');
+    says.textContent = '';
+    says.append('Now it is ', name, ', which has ' + all + (all === 1 ? ' peak' : ' peaks')
+      + (peaks.length < all
+        ? ': these are the ' + peaks.length + ' strongest, the ones that are played'
+        : ': here ' + (all === 1 ? 'it is' : 'they are'))
+      + (peaks.length > 1 ? ', low to high, taller the louder.' : '.'));
+    // A spectrum someone typed in themselves is not in MassBank.
+    if (/^MSBNK-/.test(c.accession || '')) {
+      says.append(' Its spectrum is MassBank record ' + c.accession + '.');
+    }
+  }
+  function toggleAbout() {
+    if (about.open) {
+      about.close();
+      return;
+    }
+    about.showModal();
+    root.classList.add('reading');
+    about.scrollTop = 0;
+    tellAbout();
+    stir(); // nothing fades from under someone who is reading
+  }
+  if (typeof about.showModal === 'function') {
+    byId('about-part').hidden = false;
+    aboutSwitch.addEventListener('click', toggleAbout);
+    byId('about-close').addEventListener('click', () => about.close());
+    // A press beside it puts it away, as Escape does.
+    about.addEventListener('click', (e) => {
+      if (e.target !== about) return;
+      const r = about.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) about.close();
+    });
+    about.addEventListener('close', () => {
+      root.classList.remove('reading');
+      stir();
+    });
+    window.addEventListener('resize', tellAbout);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'a' && !e.ctrlKey && !e.metaKey && !e.altKey) toggleAbout();
+    });
+  }
+
   // Watching is the picture with nothing in front of it. Where a page can
   // be put in fullscreen that is what watching is, by the f key or by the
   // button, which is all a phone or a tablet has. An iPhone cannot put a
@@ -570,7 +741,8 @@
       setTimeout(() => root.classList.remove('waking'), 400);
     }
     clearTimeout(idleTimer);
-    idleTimer = watching() ? setTimeout(settle, IDLE_AFTER) : null;
+    // Not from under someone who is reading about the station.
+    idleTimer = watching() && !about.open ? setTimeout(settle, IDLE_AFTER) : null;
   }
   // A browser also reports a move when the page changes under a pointer
   // that is lying still, which the fade itself would set off.
