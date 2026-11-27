@@ -423,6 +423,30 @@
   player.addEventListener('ended', reconnect);
   player.addEventListener('error', reconnect);
 
+  // Play pressed while the stream is down (the station restarting, a network
+  // blip): the browser gives up and its player stays dead, even to another
+  // press of play, until the page is reloaded. Keep trying instead, as for a
+  // listener who was cut off.
+  let starting = false; // play was pressed and nothing has been heard yet
+  player.addEventListener('play', () => {
+    if (!listening) starting = true;
+  });
+  player.addEventListener('playing', () => {
+    starting = false;
+  });
+  player.addEventListener('error', () => {
+    if (!starting) return;
+    listening = true;
+    reconnect();
+  });
+  player.addEventListener('pause', () => {
+    // Pausing before any sound is giving up. An error fires pause too, and so
+    // may load(); neither is the listener.
+    if (!starting || !player.paused || player.error) return;
+    starting = false;
+    listening = false;
+  });
+
   // Play should mean live. After a pause longer than STALE_AFTER, reconnect
   // instead of resuming from the buffer (which lags, and Icecast may have
   // dropped us anyway). preload="none" for the same reason, and so

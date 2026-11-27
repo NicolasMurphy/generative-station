@@ -43,7 +43,7 @@ Each compound also has a **call**: its five strongest peaks played as single not
 
 Shows the current compound, uptime, listener count and a visit counter.
 
-- **Playback** connects on play, and reconnects after a pause of more than a few seconds, so you always hear what's live. It also reconnects automatically if the stream drops or stalls silently.
+- **Playback** connects on play, and reconnects after a pause of more than a few seconds, so you always hear what's live. It also reconnects automatically if the stream drops or stalls silently, and keeps trying if the stream is down when play is pressed.
 - **About** (`a`): what the station is, plus the current compound's spectrum.
 - **Sleep timer** (`s`): 15, 30, 60 or 90 minutes, then fades out and pauses.
 - **Media session**: the compound's name and spectrum show on lock screens and media controls.
