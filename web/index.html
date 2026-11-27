@@ -53,6 +53,8 @@
     color: #8a8a8a;
   }
   #status b { color: #ccc; font-weight: normal; }
+  /* A line that has to wrap breaks between items, not inside a clock or the counter. */
+  #status b, #visits-line { white-space: nowrap; }
   #credit {
     position: fixed;
     right: 1.5rem;
@@ -66,6 +68,12 @@
   /* Narrow screens: stack the status above the credit so they don't overlap. */
   @media (max-width: 960px) {
     #status { bottom: calc(1.25rem + 1.4rem); }
+  }
+  /* Small phones: narrower gutters, so the on-air line fits on one line at 360px. */
+  @media (max-width: 374px) {
+    body { padding: 1.5rem 1rem; }
+    #status { left: 1rem; }
+    #credit { right: 1rem; }
   }
   #visits span {
     display: inline-block;
