@@ -637,7 +637,9 @@ export async function start(canvas, analyser, { getCompound = () => null, onLost
     const bars = 0.2;
     const side = css(10);
     const top = css(150);
-    const foot = css(84);
+    // On a phone the words at the foot of the page are five lines tall,
+    // and the slit, the brightest place, would lie on top of them.
+    const foot = css(width <= css(640) ? 160 : 84);
     const unit = Math.min((width - 2 * side) / (reach + bars), (height - top - foot) / 2.14);
     const plate = width - side - bars * unit - (width - 2 * side - (reach + bars) * unit) / 2;
     const slit = height - foot - (height - top - foot - 2.14 * unit) / 2 - 0.07 * unit;
