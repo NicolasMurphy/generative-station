@@ -4,28 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>generative-station</title>
-<!-- What a link to the station shows where it is passed on: a chat, a
-     post, a search result. The picture is the trace visual's figure of
-     choline. These are read without the page being run, so the addresses
-     are whole ones. -->
-<meta name="description" content="Music that is made as it plays and does not end. Its notes come from the mass spectrum of a chemical compound, and so do the pictures drawn to it.">
+<!-- Link previews. Absolute URLs because crawlers don't run the page. -->
+<meta name="description" content="Endless generative music. The notes come from the mass spectrum of a chemical compound.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="generative-station">
-<meta property="og:description" content="Music that is made as it plays and does not end. Its notes come from the mass spectrum of a chemical compound, and so do the pictures drawn to it.">
+<meta property="og:description" content="Endless generative music. The notes come from the mass spectrum of a chemical compound.">
 <meta property="og:url" content="https://station.berserkbrah.com/">
 <meta property="og:image" content="https://station.berserkbrah.com/share.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A looping line of orange, green and blue light on a dark ground: the figure the station draws of choline's mass spectrum.">
+<meta property="og:image:alt" content="A looping line of orange, green and blue light on a dark background.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/icon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <style>
-  /* The page is dark, and what the browser draws for it is to be dark too:
-     its player above all, which is otherwise a white bar and the brightest
-     thing on a page that is there for its picture. */
+  /* color-scheme: dark keeps the native audio player from being a white bar. */
   html { background: #111; color-scheme: dark; }
   body {
     background: transparent;
@@ -44,22 +39,10 @@
     pointer-events: none;
     display: block;
   }
-  h1, audio, #compound, #caption {
+  h1, audio, #compound {
     position: relative;
     z-index: 1;
   }
-  /* What the picture is of, under the name of what it is drawn from. */
-  #compound { margin-bottom: 0.4rem; }
-  #caption {
-    margin: 0;
-    max-width: 46rem;
-    font-size: 0.8rem;
-    line-height: 1.6;
-    color: #8a8a8a;
-    /* it lies on the picture, which is bright in places */
-    text-shadow: 0 0 3px #111, 0 0 6px #111;
-  }
-  #caption b { color: #ccc; font-weight: normal; }
   #status {
     position: fixed;
     left: 1.5rem;
@@ -80,10 +63,7 @@
     color: #8a8a8a;
   }
   #credit a { color: #ccc; }
-  /* On a phone the two would share a line and collide, and so would they
-     in a window too narrow for the status's last line and the credit side
-     by side: the credit keeps the bottom line and the status sits just
-     above it. */
+  /* Narrow screens: stack the status above the credit so they don't overlap. */
   @media (max-width: 960px) {
     #status { bottom: calc(1.25rem + 1.4rem); }
   }
@@ -104,46 +84,39 @@
     cursor: pointer;
     text-decoration: underline dotted;
   }
-  /* The visuals by name, for choosing one. They stand above the button
-     that asks for them, so nothing moves from under a finger, and each is
-     given some height: they are pressed with a thumb, one beside another. */
+  /* The visual picker. Opens above its button; buttons are tall enough for a thumb. */
   #visual-list {
     display: flex;
     flex-wrap: wrap;
     column-gap: 1.1em;
     max-width: calc(100vw - 3rem);
     line-height: 1.5;
-    /* two names pressed quickly are two presses, not a phone's zoom */
+    /* no double-tap zoom */
     touch-action: manipulation;
   }
   #visual-list[hidden] { display: none; }
   #status #visual-list button { padding: 0.45em 0; }
-  /* the one that is showing is not a thing to press */
   #status #visual-list button[aria-current] {
     color: #eee;
     text-decoration: none;
     cursor: default;
   }
   #visual-part:not([hidden]) + #watch-part::before { content: ' · '; }
-  /* A phone has no room for all five on one line: the two that are about
-     the picture keep a line to themselves. */
+  /* Phones: put the visual controls on their own line. */
   @media (max-width: 640px) {
     #visual-part:not([hidden]) { display: block; }
     #visual-part:not([hidden]) + #watch-part::before { content: none; }
   }
-  /* The timer stands last, after whichever of the other two are there. */
   #visual-part:not([hidden]) ~ #sleep-part::before,
   #watch-part:not(.words-only) ~ #sleep-part::before,
   html[data-visual] #watch-part ~ #sleep-part::before { content: ' · '; }
-  /* Where the words can only be hidden, not the browser with them, there
-     is nothing to offer until a picture is drawn behind them. */
+  /* "hide words" (iPhone) is pointless until a visual is drawing. */
   html:not([data-visual]) #watch-part.words-only { display: none; }
   @media (max-width: 640px) {
     html:not([data-visual]) #watch-part.words-only ~ #sleep-part::before { content: none; }
   }
   #about-part::before { content: ' · '; }
-  /* What the station is, for someone who has just arrived at it: it lies
-     over the picture, which goes on behind it. */
+  /* About dialog, drawn over the visual. */
   #about {
     box-sizing: border-box;
     width: 36rem;
@@ -158,7 +131,7 @@
     overflow-wrap: anywhere;
     overscroll-behavior: contain;
   }
-  /* a browser that does not know the element would show its words */
+  /* hide it in browsers without <dialog> */
   #about:not([open]) { display: none; }
   #about::backdrop { background: rgba(0, 0, 0, 0.3); }
   #about-words { padding: 1.1rem 1.4rem 1.2rem; }
@@ -174,7 +147,7 @@
   #about .small { font-size: 0.75rem; color: #888; }
   #about-close {
     float: right;
-    /* more to press than the word itself */
+    /* bigger tap target */
     margin: -0.4rem -0.4rem 0.1rem 0.6rem;
     padding: 0.4rem;
     font: inherit;
@@ -184,36 +157,29 @@
     cursor: pointer;
     text-decoration: underline dotted;
   }
-  /* A key is no use where there is no keyboard. */
+  /* Hide keyboard hints on touch devices. */
   @media (hover: none) {
     .key { display: none; }
   }
-  /* Fullscreen is for watching: once nothing has been touched for a few
-     seconds the page's words and the pointer leave the picture, slowly, and
-     the first movement, tap or key brings them back at once. Only while a
-     visual is drawing, or the screen would be left empty. An iPhone, which
-     has no fullscreen for a page, is watched the same way in its browser. */
-  audio, #compound, #caption, #status, #credit { transition: opacity 0.25s ease; }
+  /* While watching (fullscreen, or "hide words" on iPhone), the UI and cursor
+     fade out after a few idle seconds. Only when a visual is drawing. */
+  audio, #compound, #status, #credit { transition: opacity 0.25s ease; }
   html.idle[data-visual] audio,
   html.idle[data-visual] #compound,
-  html.idle[data-visual] #caption,
   html.idle[data-visual] #status,
   html.idle[data-visual] #credit {
     opacity: 0;
     transition-duration: 1.5s;
   }
   html.idle[data-visual], html.idle[data-visual] * { cursor: none; }
-  /* The page's other words would show through what it says about itself,
-     so they step back while that is read, and only the picture is behind. */
+  /* Hide the UI behind the about dialog. */
   html.reading audio,
   html.reading #compound,
-  html.reading #caption,
   html.reading #status,
   html.reading #credit {
     opacity: 0;
   }
-  /* What cannot be seen cannot be pressed, and the tap that brings the
-     words back does not also land on whatever is under it. */
+  /* Hidden UI can't be clicked, and the tap that wakes it doesn't click through. */
   html.idle[data-visual] audio, html.waking[data-visual] audio,
   html.idle[data-visual] #status, html.waking[data-visual] #status,
   html.idle[data-visual] #credit, html.waking[data-visual] #credit {
@@ -233,46 +199,36 @@
 <canvas id="viz-gpu" class="viz"></canvas>
 <canvas id="viz-sand" class="viz"></canvas>
 <canvas id="viz-reaction" class="viz"></canvas>
-<canvas id="viz-trace" class="viz"></canvas>
-<canvas id="viz-aurora" class="viz"></canvas>
 <canvas id="viz-pool" class="viz"></canvas>
 <canvas id="viz-magnet" class="viz"></canvas>
-<canvas id="viz-ink" class="viz"></canvas>
-<canvas id="viz-ferro" class="viz"></canvas>
-<canvas id="viz-crystal" class="viz"></canvas>
-<canvas id="viz-jellyfish" class="viz"></canvas>
-<canvas id="viz-loom" class="viz"></canvas>
-<canvas id="viz-stars" class="viz"></canvas>
 <audio controls preload="none" src="/stream"></audio>
 <p id="compound">awaiting compound</p>
-<p id="caption" hidden></p>
 <div id="status">
   <div>on air since 20 May 2026 · <b id="on-air"></b></div>
   <div id="run-line" hidden>this run · <b id="this-run"></b></div>
   <div><span id="listeners-line" hidden><b id="listeners"></b> listening now · </span><span id="visits-line" hidden>visitors <span id="visits"></span></span></div>
   <div id="visual-list" hidden></div>
-  <div><span id="visual-part" hidden><button id="visual-switch" type="button" title="choose a visual by name" aria-expanded="false" aria-controls="visual-list">change visual</button><span class="key"> (v)</span> · <button id="tour-switch" type="button" title="change the visual by itself every five minutes">tour</button><span class="key"> (t)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span><span id="about-part" hidden><button id="about-switch" type="button" title="what the station is, and where its notes come from">about</button><span class="key"> (a)</span></span></div>
+  <div><span id="visual-part" hidden><button id="visual-switch" type="button" title="choose a visual by name" aria-expanded="false" aria-controls="visual-list">change visual</button><span class="key"> (v)</span> · <button id="tour-switch" type="button" title="change visual every five minutes">tour</button><span class="key"> (t)</span></span><span id="watch-part"><button id="watch-switch" type="button">fullscreen</button><span class="key"> (f)</span></span><span id="sleep-part"><button id="sleep-switch" type="button" title="stop the sound after 15, 30, 60 or 90 minutes">sleep timer</button><span class="key"> (s)</span></span><span id="about-part" hidden><button id="about-switch" type="button" title="about the station">about</button><span class="key"> (a)</span></span></div>
 </div>
 <div id="credit">Made with love using <a href="https://claude.com/claude-code">Claude Code</a></div>
 <dialog id="about" aria-labelledby="about-title">
   <div id="about-words">
     <button id="about-close" type="button">close</button>
     <h2 id="about-title">generative-station</h2>
-    <p>Music that is made as it plays and does not end. None of it is a recording: a program is playing this now, and will not play it the same way again.</p>
-    <p>Its notes come from a chemical compound. A mass spectrometer breaks a compound into pieces and weighs them, and what it finds is a row of peaks: one for each weight of piece, taller the more pieces there were of that weight. Every peak is made a pitch, louder the taller it is, and the station's voices take their notes from those. The pictures are drawn from the same peaks.</p>
+    <p>Generative music that never stops. Nothing is recorded; a program is playing it live and won't play it the same way twice.</p>
+    <p>The notes come from a chemical compound. A mass spectrometer breaks a compound into fragments and weighs them, producing a set of peaks. Each peak becomes a pitch, louder for taller peaks. The visuals are drawn from the same peaks.</p>
     <figure id="about-figure" hidden>
       <canvas id="about-spectrum"></canvas>
       <div id="about-range"><span id="about-low"></span><span id="about-high"></span></div>
       <figcaption id="about-playing"></figcaption>
     </figure>
-    <p id="about-none">It has no compound at the moment, so its voices are choosing their own notes.</p>
-    <p>The compound is the last one that somebody turned into sound with the <a href="https://mass-spectrum-to-audio-converter.onrender.com" target="_blank" rel="noopener">mass spectrum to audio converter</a>. Choose one there and within a minute the station is playing it, for everyone who is listening. The word after the compound's name on this page (linear, inverse or modulo) is the rule that was chosen there for turning weights into pitches.</p>
-    <p class="small">The spectra are from <a href="https://github.com/MassBank/MassBank-data/releases/tag/2025.05.1" target="_blank" rel="noopener">MassBank</a>, © the MassBank consortium, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. How the station is made is <a href="https://github.com/NicolasMurphy/generative-station" target="_blank" rel="noopener">on GitHub</a>.</p>
+    <p id="about-none">No compound right now, so the voices are picking their own notes.</p>
+    <p>The compound is whichever one was most recently sent from the <a href="https://mass-spectrum-to-audio-converter.onrender.com" target="_blank" rel="noopener">mass spectrum to audio converter</a>. Pick one there and the station switches to it within a minute, for everyone listening. The word after the compound's name (linear, inverse or modulo) is the mapping from mass to pitch.</p>
+    <p class="small">Spectra from <a href="https://github.com/MassBank/MassBank-data/releases/tag/2025.05.1" target="_blank" rel="noopener">MassBank</a>, © the MassBank consortium, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Source <a href="https://github.com/NicolasMurphy/generative-station" target="_blank" rel="noopener">on GitHub</a>.</p>
   </div>
 </dialog>
 <script>
-  // The day of the first commit. "This run" is how long the current stream
-  // has been up; it starts again whenever the station restarts.
+  // First commit. "This run" resets whenever the stream restarts.
   const ON_AIR_SINCE = Date.UTC(2026, 4, 20);
   let clockOffset = 0;       // the server's clock minus this device's, in ms
   let streamStarted = null;  // ms since the epoch, from the server
@@ -301,9 +257,8 @@
     byId('visits-line').hidden = false;
   }
 
-  // The peaks the station voices of a compound, strongest first: the same
-  // rule as piece.scd, which leaves out a peak more than 40 dB below the
-  // strongest and plays 32 at most.
+  // The peaks the station plays, strongest first. Same rule as piece.scd:
+  // at most 32, and nothing more than 40 dB below the strongest.
   function voicedPeaks(c) {
     const freqs = c && Array.isArray(c.frequencies) ? c.frequencies : [];
     const amps = c && Array.isArray(c.amplitudes) ? c.amplitudes : [];
@@ -312,10 +267,8 @@
     return peaks.filter((p) => p.a >= top * 0.01).sort((p, q) => q.a - p.a).slice(0, 32);
   }
 
-  // A compound's spectrum as one is drawn: the voiced peaks low to high from
-  // left to right, a peak's height its strength, in the colours the visuals
-  // give them. It is the cover a phone or a desktop shows next to what is
-  // playing, and the figure in what the page says about itself.
+  // The spectrum as bars, low to high. Used for the media-session cover
+  // and the figure in the about dialog.
   const COVER = 512;
   const COVER_COLOURS = [[255, 71, 31], [243, 255, 104], [56, 255, 102], [73, 255, 255], [46, 102, 255]];
   function coverColour(x) {
@@ -333,9 +286,7 @@
     g.lineCap = 'round';
     g.lineWidth = width;
     g.shadowBlur = glow;
-    // Peaks that lie close together run into one another, as they do in a
-    // drawn mass spectrum. The weakest are drawn first, so that a strong
-    // peak is not hidden behind its neighbours.
+    // Weakest first, so strong peaks aren't hidden behind their neighbours.
     peaks.slice().reverse().forEach((p) => {
       const x = span > 0 ? (Math.log(p.f) - lo) / span : 0.5;
       const at = left + x * (right - left);
@@ -363,8 +314,7 @@
     return canvas.toDataURL('image/png');
   }
 
-  // What is playing, for where a listener looks once the page is out of
-  // sight: the lock screen, the notifications, the media keys' pop-up.
+  // Lock screen / media controls metadata.
   let announced = null;
   function announce(c) {
     if (!('mediaSession' in navigator) || typeof MediaMetadata !== 'function') return;
@@ -374,8 +324,7 @@
     if (key === announced) return;
     announced = key;
     try {
-      // The station's icon stands in where there is no compound, and where
-      // a browser will not take a picture that is not a file.
+      // The icon is the fallback, and for browsers that reject data URLs.
       const artwork = [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }];
       const cover = c ? drawCover(c) : null;
       if (cover) artwork.unshift({ src: cover, sizes: COVER + 'x' + COVER, type: 'image/png' });
@@ -389,8 +338,7 @@
   }
   announce(null);
 
-  // One request carries everything the page shows; the visual reads the
-  // compound's peaks from window.stationStats.
+  // Visuals read the compound from window.stationStats.
   async function updateStats() {
     try {
       const r = await fetch('/stats', { cache: 'no-store' });
@@ -405,7 +353,7 @@
         : 'awaiting compound';
       if (byId('compound').textContent !== playing) {
         byId('compound').textContent = playing;
-        stir(); // someone watching in fullscreen is shown the new name
+        stir(); // show the new name to someone watching
       }
       announce(c);
       tellAbout();
@@ -415,12 +363,11 @@
       tickClocks();
     } catch (e) {}
   }
-  // The visual waits for the first answer, so that it opens on the
-  // compound and not on the figure it draws while there is none.
+  // The first visual waits for this so it opens on the compound.
   window.stationStatsReady = updateStats();
   setInterval(updateStats, 10000);
 
-  // Count this browser as a visit, at most once every twelve hours.
+  // Count a visit at most once per 12 hours per browser.
   try {
     const last = Number(localStorage.getItem('gs-visit') || 0);
     if (Date.now() - last > 12 * 3600 * 1000) {
@@ -435,20 +382,19 @@
     }
   } catch (e) {}
 
-  // The stream ends whenever the station or Icecast restarts. Reconnect
-  // rather than leave a dead player, but only for someone who was listening.
+  // Reconnect when the stream drops (station or Icecast restart), but only
+  // if the listener was playing.
   const player = document.querySelector('audio');
   let listening = false;
   let retryTimer = null;
-  let pausedAt = null; // when the listener paused, until the sound is back
-  let joinedAt = 0;    // when the page last connected to the stream itself
+  let pausedAt = null; // when the listener paused
+  let joinedAt = 0;    // when the page last reconnected
   player.addEventListener('playing', () => {
     listening = true;
     pausedAt = null;
   });
   player.addEventListener('pause', () => {
-    // Only a pause on a healthy stream is the listener's own. The stream
-    // ending or failing also pauses the element.
+    // Ending or erroring also fires pause; only count a real user pause.
     if (!player.ended && !player.error && player.readyState > 2) {
       listening = false;
       pausedAt = Date.now();
@@ -466,28 +412,21 @@
   player.addEventListener('ended', reconnect);
   player.addEventListener('error', reconnect);
 
-  // This is a station, so play means what is on now. A browser left to
-  // itself keeps what it was sent while paused and carries on from there:
-  // the sound is then as far behind the name and the picture as the pause
-  // was long, and after a long pause it runs out, because Icecast has
-  // dropped a listener that stopped reading, and is cut off until the page
-  // has reconnected. So play after more than a short pause connects afresh.
-  // For the same reason the player does not preload: a browser that does
-  // connects when the page opens, and play pressed later starts from then.
-  // Connecting only on play also means that "listening now" counts
-  // listeners and not open pages.
+  // Play should mean live. After a pause longer than STALE_AFTER, reconnect
+  // instead of resuming from the buffer (which lags, and Icecast may have
+  // dropped us anyway). preload="none" for the same reason, and so
+  // "listening now" counts listeners rather than open tabs.
   const STALE_AFTER = 10000;
   let mayRejoin = true;
   player.addEventListener('play', () => {
     if (pausedAt === null || !mayRejoin) return;
-    // Connecting sets off a "play" of its own, which must not connect again.
+    // load() fires its own play event; don't loop.
     if (Date.now() - Math.max(pausedAt, joinedAt) < STALE_AFTER) return;
     listening = true; // so that a connection that fails is tried again
     joinedAt = Date.now();
     player.load();
     player.play().catch((e) => {
-      // A browser that will not let the page start the sound is left to
-      // resume in its own way from now on; the next press is the listener's.
+      // Autoplay blocked: stop rejoining, leave it to the user.
       if (!e || e.name !== 'NotAllowedError') return;
       mayRejoin = false;
       listening = false;
@@ -495,38 +434,30 @@
     });
   });
 
-  // A connection can also die without a word. A phone that is out of signal
-  // for longer than Icecast will wait is dropped by it and never hears so,
-  // and the browser then waits for good on a connection that nothing will
-  // come down: no error, no end, the player still showing that it plays,
-  // and pause and play only go back to the same dead connection. So when
-  // the sound should be moving on, has not for a while, and it is the
-  // stream that the player is waiting for, connect afresh. An attempt that
-  // brings nothing is followed by one that is given longer, so that a slow
-  // connection is not cut off again and again before it can start.
+  // Stall watchdog. A connection can die silently (e.g. a phone loses
+  // signal and Icecast drops it): no error, no ended, the player just waits
+  // forever. If playback hasn't advanced and the player is starved for data,
+  // reconnect, backing off from 10s to 30s.
   const STUCK_AFTER = 10000;
   const STUCK_LONGEST = 30000;
   let patience = STUCK_AFTER;
-  let movedAt = Date.now(); // when the sound last moved on, or did not have to
+  let movedAt = Date.now(); // last time playback advanced (or didn't need to)
   let movedTo = -1;
-  let stuckFor = 0;         // looks in a row that found it where it was
+  let stuckFor = 0;         // consecutive stuck checks
   setInterval(() => {
     const now = Date.now();
     const at = player.currentTime;
     const moved = at > movedTo;
     movedTo = at;
     if (moved) patience = STUCK_AFTER;
-    // A player that has sound to play and stands still is held up by
-    // something else (the device's sound, say), which a new connection
-    // would not mend.
+    // Not starved means something else is holding it up; reconnecting won't help.
     const starved = player.readyState < 3;
     if (moved || !starved || !listening || player.paused || retryTimer) {
       movedAt = now;
       stuckFor = 0;
       return;
     }
-    // Two looks at least: the first after a device has slept, or a hidden
-    // page has been held back, says only that this was not running.
+    // Require two checks: the first after sleep or a throttled tab is meaningless.
     stuckFor += 1;
     if (stuckFor < 2 || now - movedAt < patience) return;
     movedAt = now;
@@ -535,31 +466,22 @@
     joinedAt = now;
     player.load();
     player.play().catch((e) => {
-      // Where the page may not start the sound itself, the player is left
-      // stopped and showing it: the next press is the listener's, and it
-      // connects afresh. A start that was called off, by a pause or by
-      // another connection, is left to whatever called it off.
+      // Autoplay blocked: leave it to the user. AbortError: something else
+      // interrupted it, leave it alone.
       if (e && e.name === 'NotAllowedError') listening = false;
       else if (!e || e.name !== 'AbortError') reconnect();
     });
   }, 1000);
 
-  // The station does not end, so someone who falls asleep to it is played
-  // to all night. The timer is how it is asked to stop by itself: each
-  // press asks for longer, 15 minutes, then 30, 60 and 90, and the one
-  // after that calls it off, as the sleep button of a clock radio does. The
-  // button counts down what is left. The sound is turned down over the last
-  // seconds, where a page is allowed to turn it (an iPhone keeps the volume
-  // to its own buttons, and there it simply stops), then paused like a
-  // listener's own pause: the screen is let go to sleep too, and the next
-  // play is what is on then.
+  // Sleep timer. Each press cycles 15 → 30 → 60 → 90 → off. Fades out over
+  // the last 20s (iOS ignores volume, so it just stops), then pauses.
   const SLEEP_MINUTES = [15, 30, 60, 90];
   const SLEEP_FADE = 20000;
   const sleepSwitch = byId('sleep-switch');
-  let sleepStep = -1;    // which of SLEEP_MINUTES was asked for, if any
-  let sleepAt = null;    // when the sound is to stop
+  let sleepStep = -1;    // index into SLEEP_MINUTES, or -1
+  let sleepAt = null;    // when to stop
   let sleepTimer = null;
-  let fadedFrom = null;  // the listener's volume, while it is turned down
+  let fadedFrom = null;  // the user's volume, saved during the fade
   function showSleep() {
     const s = sleepAt === null ? 0 : Math.max(0, Math.ceil((sleepAt - Date.now()) / 1000));
     const says = sleepAt === null ? 'sleep timer' : 'sleep ' + Math.floor(s / 60) + ':' + two(s % 60);
@@ -578,17 +500,14 @@
         endFade();
       } else {
         if (fadedFrom === null) fadedFrom = player.volume;
-        // Slowly at first, as an ear hears it.
+        // Quadratic, so it sounds even.
         try { player.volume = fadedFrom * Math.pow(left / SLEEP_FADE, 2); } catch (e) {}
       }
       showSleep();
       return;
     }
     setSleep(-1, true);
-    // Nothing the page does by itself may bring the sound back: not a
-    // reconnection that is waiting its turn because the stream has just
-    // ended (which leaves the player paused already), nor one set off by
-    // an error that arrives later.
+    // Make sure no pending or later reconnect brings the sound back.
     if (listening || !player.paused) pausedAt = Date.now();
     listening = false;
     clearTimeout(retryTimer);
@@ -600,9 +519,7 @@
     sleepAt = step < 0 ? null : Date.now() + SLEEP_MINUTES[step] * 60000;
     clearInterval(sleepTimer);
     sleepTimer = sleepAt === null ? null : setInterval(tickSleep, 200);
-    // The volume is the listener's again at once, except where the sound
-    // has just been turned all the way down to be stopped: there it is
-    // given back once the sound has stopped, so that it is not heard.
+    // Restore volume, but after the pause when the timer fired, so it isn't heard.
     if (asleep) setTimeout(endFade, 500);
     else endFade();
     showSleep();
@@ -610,25 +527,18 @@
   function stepSleep() {
     setSleep(sleepStep + 1 < SLEEP_MINUTES.length ? sleepStep + 1 : -1);
   }
-  // A page that is out of sight may have its timers held back. The player
-  // tells its own time for as long as it plays, so the timer is looked at
-  // then too, and the sound does not run on past it.
+  // Background tabs throttle intervals; timeupdate keeps firing while playing.
   player.addEventListener('timeupdate', tickSleep);
   sleepSwitch.addEventListener('click', stepSleep);
   window.addEventListener('keydown', (e) => {
     if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) stepSleep();
   });
 
-  // Someone who arrives here is given a player, a compound's name and a
-  // picture, and nothing that says what any of it is. So the page can be
-  // asked (the button, or the a key): what the station is, where its notes
-  // come from, and that the compound is anyone's to choose. What it says of
-  // the compound that is playing is that compound's own spectrum, drawn as
-  // the cover is, and it is kept up while it is being read. The links open
-  // beside the page, or following one would stop the sound.
+  // About dialog (button or "a"). Shows the current compound's spectrum and
+  // updates while open. Links open in a new tab so the sound keeps playing.
   const about = byId('about');
   const aboutSwitch = byId('about-switch');
-  let aboutTold = null; // what the figure was last drawn of, and how wide
+  let aboutTold = null; // cache key for the last drawn figure
   function tellAbout() {
     if (!about.open) return;
     const c = (window.stationStats && window.stationStats.compound) || null;
@@ -653,7 +563,7 @@
     g.fillStyle = '#2a2a2a';
     g.fillRect(0, h - 2, w, 2);
     const stroke = Math.min(8, Math.max(3, 110 / peaks.length));
-    // The glow is counted in the canvas's own dots, whatever the scale.
+    // Glow is in device pixels.
     drawPeaks(g, peaks, 18, w - 18, h - 12, h - 32, stroke, 2 * stroke * scale);
 
     const pitches = peaks.map((p) => p.f);
@@ -669,14 +579,11 @@
     name.textContent = c.name;
     const says = byId('about-playing');
     says.textContent = '';
-    says.append('Now it is ', name, ', which has ' + all + (all === 1 ? ' peak' : ' peaks')
-      + (peaks.length < all
-        ? ': these are the ' + peaks.length + ' strongest, the ones that are played'
-        : ': here ' + (all === 1 ? 'it is' : 'they are'))
-      + (peaks.length > 1 ? ', low to high, taller the louder.' : '.'));
-    // A spectrum someone typed in themselves is not in MassBank.
+    says.append('Now playing: ', name, ', ' + all + (all === 1 ? ' peak' : ' peaks')
+      + (peaks.length < all ? ' (the ' + peaks.length + ' strongest are played).' : '.'));
+    // Hand-entered spectra have no MassBank record.
     if (/^MSBNK-/.test(c.accession || '')) {
-      says.append(' Its spectrum is MassBank record ' + c.accession + '.');
+      says.append(' MassBank record ' + c.accession + '.');
     }
   }
   function toggleAbout() {
@@ -688,13 +595,13 @@
     root.classList.add('reading');
     about.scrollTop = 0;
     tellAbout();
-    stir(); // nothing fades from under someone who is reading
+    stir(); // don't fade while reading
   }
   if (typeof about.showModal === 'function') {
     byId('about-part').hidden = false;
     aboutSwitch.addEventListener('click', toggleAbout);
     byId('about-close').addEventListener('click', () => about.close());
-    // A press beside it puts it away, as Escape does.
+    // Click outside to close.
     about.addEventListener('click', (e) => {
       if (e.target !== about) return;
       const r = about.getBoundingClientRect();
@@ -710,15 +617,12 @@
     });
   }
 
-  // Watching is the picture with nothing in front of it. Where a page can
-  // be put in fullscreen that is what watching is, by the f key or by the
-  // button, which is all a phone or a tablet has. An iPhone cannot put a
-  // page in fullscreen: there the same button hides the words and leaves
-  // the browser as it is, and everything else about watching is the same.
+  // Watching: fullscreen (button or "f"). iPhone has no fullscreen API, so
+  // there the button just hides the UI.
   const root = document.documentElement;
   const canFullscreen = Boolean(document.fullscreenEnabled && root.requestFullscreen);
   const watchSwitch = byId('watch-switch');
-  let wordsHidden = false; // watching, where there is no fullscreen
+  let wordsHidden = false; // iPhone's stand-in for fullscreen
   const watching = () => Boolean(document.fullscreenElement) || wordsHidden;
   function toggleWatching() {
     if (canFullscreen) {
@@ -726,13 +630,11 @@
       else root.requestFullscreen().catch(() => {});
       return;
     }
-    // Nothing to watch yet: the words stay.
     if (!wordsHidden && !root.dataset.visual) return;
     wordsHidden = !wordsHidden;
-    // When the words next come back, the button is how they are kept.
     watchSwitch.textContent = wordsHidden ? 'keep words' : 'hide words';
     stir();
-    // The words were asked to go, so they go now and not in a few seconds.
+    // Hide immediately rather than after the idle delay.
     if (wordsHidden) settle();
     holdScreen();
   }
@@ -742,22 +644,20 @@
   }
   watchSwitch.addEventListener('click', toggleWatching);
   window.addEventListener('keydown', (e) => {
-    // Leave the browser its own shortcuts: Ctrl+F and Cmd+F are find.
+    // Leave Ctrl/Cmd+F alone.
     if (e.key !== 'f' || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
     toggleWatching();
   });
 
-  // While watching, the words leave the picture once nothing has been
-  // touched for a while (the style sheet says how), and anything touched
-  // brings them back.
+  // Idle fade while watching; any input brings the UI back.
   const IDLE_AFTER = 4000;
   let idleTimer = null;
   function settle() {
     clearTimeout(idleTimer);
     idleTimer = null;
     root.classList.add('idle');
-    // What was open among the words is put away with them.
+    // Close the visual picker too.
     window.dispatchEvent(new Event('station-settle'));
   }
   function stir() {
@@ -767,11 +667,9 @@
       setTimeout(() => root.classList.remove('waking'), 400);
     }
     clearTimeout(idleTimer);
-    // Not from under someone who is reading about the station.
     idleTimer = watching() && !about.open ? setTimeout(settle, IDLE_AFTER) : null;
   }
-  // A browser also reports a move when the page changes under a pointer
-  // that is lying still, which the fade itself would set off.
+  // Ignore synthetic pointermoves fired when the layout changes under a still cursor.
   let pointerAt = '';
   window.addEventListener('pointermove', (e) => {
     const at = e.screenX + ',' + e.screenY;
@@ -782,9 +680,7 @@
   window.addEventListener('pointerdown', stir);
   window.addEventListener('keydown', stir);
 
-  // Nobody touches a screen they are watching, so it would dim and lock in
-  // the middle of the picture. While the station plays and is watched the
-  // screen is asked to stay awake, and let go again as soon as either ends.
+  // Keep the screen awake while watching and playing.
   let screenLock = null;
   let lockAsked = false;
   async function holdScreen() {
@@ -795,12 +691,12 @@
       lockAsked = true;
       try {
         const lock = await navigator.wakeLock.request('screen');
-        // The browser lets go by itself when the page is hidden.
+        // Released automatically when the page is hidden.
         lock.addEventListener('release', () => { if (screenLock === lock) screenLock = null; });
         screenLock = lock;
       } catch (e) {}
       lockAsked = false;
-      if (screenLock) holdScreen(); // in case it stopped being wanted meanwhile
+      if (screenLock) holdScreen(); // re-check: state may have changed while awaiting
     } else if (!wanted && screenLock) {
       const lock = screenLock;
       screenLock = null;
@@ -812,83 +708,38 @@
   document.addEventListener('fullscreenchange', () => { stir(); holdScreen(); });
 </script>
 <script type="module">
-  // Fourteen visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
-  // "magnet", "ink", "ferro", "crystal", "jellyfish", "loom" and "stars" need
-  // WebGPU; "rings" runs everywhere and is all a browser without WebGPU gets.
-  // The WebGPU ones draw the compound whether or not there is sound, so they
-  // are there when the page opens, and follow the stream from the first
-  // play on. "rings" draws the sound and
-  // nothing else, so it waits for the first play.
+  // Visuals. All but "rings" need WebGPU and draw from the compound, so they
+  // can start before play. "rings" is the fallback and only draws audio, so
+  // it waits for the first play.
   const audio = document.querySelector('audio');
   const visuals = {
     bloom: { canvas: document.getElementById('viz-gpu'), module: '/viz-bloom.js' },
     sand: { canvas: document.getElementById('viz-sand'), module: '/viz-sand.js' },
     reaction: { canvas: document.getElementById('viz-reaction'), module: '/viz-reaction.js' },
-    trace: { canvas: document.getElementById('viz-trace'), module: '/viz-trace.js' },
-    aurora: { canvas: document.getElementById('viz-aurora'), module: '/viz-aurora.js' },
     pool: { canvas: document.getElementById('viz-pool'), module: '/viz-pool.js' },
     magnet: { canvas: document.getElementById('viz-magnet'), module: '/viz-magnet.js' },
-    ink: { canvas: document.getElementById('viz-ink'), module: '/viz-ink.js' },
-    ferro: { canvas: document.getElementById('viz-ferro'), module: '/viz-ferro.js' },
-    crystal: { canvas: document.getElementById('viz-crystal'), module: '/viz-crystal.js' },
-    jellyfish: { canvas: document.getElementById('viz-jellyfish'), module: '/viz-jellyfish.js' },
-    loom: { canvas: document.getElementById('viz-loom'), module: '/viz-loom.js' },
-    stars: { canvas: document.getElementById('viz-stars'), module: '/viz-stars.js' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
-  // The order the switch steps through.
-  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink', 'ferro', 'crystal', 'jellyfish', 'loom', 'stars'] : []).concat(['rings']);
-  let started = false; // the audio graph, with the first play
+  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'pool', 'magnet'] : []).concat(['rings']);
+  let started = false; // audio graph created (needs a user gesture)
   let analyser = null;
-  let sides = null; // an analyser for the left of the stream and one for the right
   let current = null;
   let handle = null;
   let switching = false;
-  let heading = null; // the visual last set out for, which may be on its way
-  // What each picture is of. The pictures are drawn from the compound, and
-  // nothing in them says so: a ring, a ray or a swing of the pen is one of
-  // the peaks counted beside the compound's name. So the page says it, under
-  // that name, and with it what the visual is called.
-  const captions = {
-    bloom: 'each peak is a ring of particles, wider and bluer the higher the peak',
-    sand: 'each peak shakes a plate of sand, and the sand gathers where the plate is still',
-    reaction: 'the peaks decide what grows in a dish: spots, stripes or restless shapes',
-    trace: 'each peak is a pendulum swinging one pen, faster the higher the peak',
-    aurora: 'each peak is a ray of light, low to high across the sky, taller the stronger',
-    pool: 'each peak is a ripple on a pool, finer the higher the peak, and this is their light on its floor',
-    magnet: 'each peak is a beam of ions that a magnet bends onto a plate, wider the higher the peak',
-    ink: 'each peak lets ink of its own colour into water, more of it the stronger the peak',
-    ferro: 'each peak is a magnet under a dish of black fluid, which stands up in spikes over it',
-    crystal: 'each peak seeds crystals of its own colour, seen as a microscope shows them in polarised light',
-    jellyfish: 'each peak is a kind of jellyfish, larger and slower the lower the peak, more of them the stronger',
-    loom: 'what is played, woven into cloth: a thread for each pitch, low to high, raised while it sounds',
-    stars: 'what is played, as stars: each note where it is heard, left to right, and as high up the sky as its pitch',
-    rings: 'the sound itself, a bar for each part of it, red for low to blue for high',
-  };
-  const caption = document.getElementById('caption');
-  // The page reads from the root element whether anything is being drawn.
+  let heading = null; // the visual currently loading, if any
+  // CSS uses html[data-visual] to know something is drawing.
   function nowShowing(name) {
     current = name;
     if (name) document.documentElement.dataset.visual = name;
     else delete document.documentElement.dataset.visual;
-    caption.hidden = !captions[name];
-    if (captions[name]) {
-      const called = document.createElement('b');
-      called.textContent = name;
-      caption.textContent = '';
-      caption.append(called, ' · ' + captions[name]);
-    }
     tellList();
   }
 
-  // What a visual is given to listen with. A browser only allows the audio
-  // graph after a gesture, so the analyser itself does not exist before the
-  // first play; until then this hears silence. It always counts its bins
-  // over 0 to 24 kHz, whatever rate the device turns out to play at.
+  // Analyser proxy handed to visuals. Returns silence until the first play,
+  // and always reports bins as if the sample rate were 48 kHz.
   const BINS = 2048;
   const RATE = 48000;
   let heard = null;
-  let heardSide = null;
   const ears = {
     frequencyBinCount: BINS,
     context: { sampleRate: RATE },
@@ -903,32 +754,12 @@
       analyser.getByteFrequencyData(heard);
       for (let i = 0; i < into.length; i++) into[i] = heard[Math.round((i * RATE) / rate)] || 0;
     },
-    // The left of the stream and the right, each by itself and in decibels,
-    // for a visual that draws where a sound is. It says whether it could.
-    getStereoFrequencyData(left, right) {
-      if (!sides) return false;
-      [left, right].forEach((into, side) => {
-        const node = sides[side];
-        const rate = node.context.sampleRate;
-        if (rate === RATE && into.length === node.frequencyBinCount) {
-          node.getFloatFrequencyData(into);
-          return;
-        }
-        if (!heardSide) heardSide = new Float32Array(node.frequencyBinCount);
-        node.getFloatFrequencyData(heardSide);
-        for (let i = 0; i < into.length; i++) {
-          const from = Math.round((i * RATE) / rate);
-          into[i] = from < heardSide.length ? heardSide[from] : -Infinity;
-        }
-      });
-      return true;
-    },
   };
 
   function remembered() {
     try { return localStorage.getItem('gs-visual'); } catch (e) { return null; }
   }
-  // The visual this browser was left on, or the first.
+  // Last visual used in this browser, or the first.
   const first = order.includes(remembered()) ? remembered() : order[0];
 
   async function show(name) {
@@ -940,9 +771,8 @@
         handle.stop();
         handle = null;
         visuals[current].canvas.style.opacity = '0';
-        // The page is not told that nothing is drawn: the next picture is
-        // on its way, and for someone watching the words would come back
-        // into it for the moment between the two.
+        // Don't clear data-visual here, or the UI would flash back in
+        // between visuals.
         current = null;
       }
       const visual = visuals[name];
@@ -958,16 +788,14 @@
         },
       });
       nowShowing(name);
-      // Unless it has been left again already, as when names are pressed
-      // one straight after another: a picture that has stopped would be
-      // brought back to lie over the one that is drawing.
+      // Skip if another visual was picked in the meantime.
       requestAnimationFrame(() => {
         if (current === name) visual.canvas.style.opacity = '1';
       });
     } catch (e) {
       console.warn('the "' + name + '" visual could not start:', e);
       nowShowing(null);
-      // Not offered again, or the switch would keep coming back to it.
+      // Drop it from the rotation.
       if (name !== 'rings' && order.includes(name)) order.splice(order.indexOf(name), 1);
       switching = false;
       if (name !== 'rings') return show('rings');
@@ -976,8 +804,7 @@
     }
   }
 
-  // The visual after the one that is showing, among those given, if there
-  // is another.
+  // Next visual in the list, or null if there's no other.
   function after(among) {
     if (!among.length) return null;
     const next = among[(among.indexOf(current || first) + 1) % among.length];
@@ -986,28 +813,22 @@
   function change(next) {
     if (switching || !next) return;
     try { localStorage.setItem('gs-visual', next); } catch (e) {}
-    tourLeft = TOUR_EVERY; // a visual chosen by hand is given its full time too
+    tourLeft = TOUR_EVERY; // reset the tour countdown on any change
     showTour();
     return show(next);
   }
   const drawn = () => order.filter((name) => name !== 'rings');
-  // Before the first play there is nothing for "rings" to draw.
+  // "rings" has nothing to draw before the first play.
   const offered = () => (analyser ? order : drawn());
   function switchVisual() {
     change(after(offered()));
   }
 
-  // Stepping was enough for two visuals. With fourteen it is a long way
-  // round: the one before this is thirteen presses off, each of which starts
-  // a picture only to leave it, and nothing says how many there are or what
-  // they are called. So the button lists them by name, and a press on a
-  // name goes there. The list stays while one after another is tried, with
-  // the picture changing behind it, and is put away by the button, by
-  // Escape, by a press anywhere beside the words, or with the words when
-  // they leave someone who is watching. The v key still steps.
+  // Visual picker. Stays open while trying visuals; closes on the button,
+  // Escape, a click outside, or the idle fade. "v" steps to the next.
   const visualList = document.getElementById('visual-list');
   const visualSwitch = document.getElementById('visual-switch');
-  let asked = null; // a name pressed while another picture was on its way
+  let asked = null; // picked while another visual was still loading
   function tellList() {
     if (visualList.hidden) return;
     const names = offered().join(' ');
@@ -1018,11 +839,10 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = name;
-        button.title = captions[name];
         visualList.append(button);
       });
     }
-    // The one a press has asked for is marked at once, before it is drawn.
+    // Mark the pick immediately, before it loads.
     const marked = asked || current || heading;
     for (const button of visualList.children) {
       if (button.textContent === marked) button.setAttribute('aria-current', 'true');
@@ -1037,8 +857,7 @@
   async function choose(name) {
     asked = name;
     tellList();
-    // A picture that is on its way is let arrive. Of the names pressed
-    // meanwhile, the last is the one that is wanted.
+    // Wait for any load in progress; the last pick wins.
     while (switching) await new Promise((resolve) => setTimeout(resolve, 100));
     if (asked !== name) return;
     asked = null;
@@ -1054,28 +873,17 @@
   });
   window.addEventListener('station-settle', () => setList(false));
 
-  // There are more pictures than anyone finds by pressing the switch, and
-  // someone watching does not press anything: the station on a screen
-  // across the room stays on the picture it was left on. The tour changes
-  // it for them. While it is on, the page moves to the next visual by
-  // itself every five minutes, in the order the switch steps through, and
-  // the button counts down to the next. It goes round the visuals that
-  // draw the compound and passes over "rings", which draws the sound and
-  // would be an empty screen for as long as the station is paused. Only
-  // time the picture is there to be seen counts, so a page left in the
-  // background comes back to the visual it had. The old picture is faded
-  // out while it still moves, which a change made by hand does not wait
-  // for. The words stay away: someone watching asked for the picture, and
-  // a move or a tap says what it now is. It is remembered like the visual
-  // itself.
+  // Tour: advance to the next visual every five minutes, skipping "rings"
+  // (blank while paused). Only counts time while the tab is visible. Fades
+  // the old visual out first. Remembered in localStorage.
   const TOUR_EVERY = 5 * 60000;
-  const TOUR_FADE = 1800; // what the style sheet gives a canvas to fade
+  const TOUR_FADE = 1800; // matches the canvas opacity transition in CSS
   const tourSwitch = document.getElementById('tour-switch');
   let touring = false;
-  let tourLeft = TOUR_EVERY; // of looking, until the next visual
-  let tourLooked = 0;        // when the tour last looked at the time
+  let tourLeft = TOUR_EVERY; // visible time until the next visual
+  let tourLooked = 0;        // last tick
   let tourTimer = null;
-  let tourMoving = false;    // the old picture is fading out
+  let tourMoving = false;    // fade-out in progress
   function showTour() {
     const s = Math.max(0, Math.ceil(tourLeft / 1000));
     const says = touring
@@ -1089,11 +897,11 @@
     try {
       visuals[from].canvas.style.opacity = '0';
       await new Promise((resolve) => setTimeout(resolve, TOUR_FADE));
-      // Unless it was called off meanwhile, or the picture changed by hand.
+      // Unless the tour was stopped or the visual changed meanwhile.
       if (touring && current === from) await change(after(drawn()));
     } finally {
       tourMoving = false;
-      // Whatever came of it, a picture that is still there is seen again.
+      // If we didn't switch, fade the current one back in.
       if (current === from && handle) visuals[from].canvas.style.opacity = '1';
     }
   }
@@ -1105,7 +913,6 @@
     tourLeft -= looked;
     if (tourLeft <= 0) {
       tourLeft = TOUR_EVERY;
-      // Where there is no other visual to show, this one stays.
       if (after(drawn())) tourOn();
     }
     showTour();
@@ -1126,9 +933,7 @@
   }
   try { if (navigator.gpu && localStorage.getItem('gs-tour')) setTour(true, false); } catch (e) {}
 
-  // The picture is there before the sound, except for someone who has asked
-  // their device for less motion: they get it with the first play, as
-  // everyone did before.
+  // Start the visual before play, unless the user prefers reduced motion.
   const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (first !== 'rings' && !still) {
     Promise.race([
@@ -1149,39 +954,12 @@
     analyser.smoothingTimeConstant = 0.7;
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
-    // The two sides of the stream apart as well, for "stars". They are
-    // only listened to: what they pass on is turned all the way down, and
-    // is passed on at all so that every browser keeps them running. A
-    // stream that had one channel would be the same on both sides.
-    try {
-      const both = audioCtx.createGain();
-      both.channelCount = 2;
-      both.channelCountMode = 'explicit';
-      both.channelInterpretation = 'speakers';
-      const apart = audioCtx.createChannelSplitter(2);
-      const unheard = audioCtx.createGain();
-      unheard.gain.value = 0;
-      source.connect(both);
-      both.connect(apart);
-      const each = [0, 1].map((side) => {
-        const node = audioCtx.createAnalyser();
-        node.fftSize = 2 * BINS;
-        node.smoothingTimeConstant = 0.6;
-        apart.connect(node, side);
-        node.connect(unheard);
-        return node;
-      });
-      unheard.connect(audioCtx.destination);
-      sides = each;
-    } catch (e) {
-      console.warn('the two sides of the stream cannot be told apart:', e);
-    }
 
     if (!current) await show(order.includes(first) ? first : 'rings');
-    tellList(); // "rings" can be asked for from now on
+    tellList(); // "rings" is now available
   });
 
-  // Only offer the switch where there is something to switch to.
+  // No WebGPU means only "rings", so no picker.
   document.getElementById('visual-part').hidden = !navigator.gpu;
   visualSwitch.addEventListener('click', () => setList(visualList.hidden));
   tourSwitch.addEventListener('click', () => setTour(!touring, true));

@@ -1,37 +1,17 @@
-// "magnet": the compound as a mass spectrometer sorts it (WebGPU).
+// "magnet": a magnetic-sector mass spectrometer, seen from above (WebGPU).
 //
-// A mass spectrum is read by throwing the pieces of a compound through a
-// magnet. They enter by a slit, all in one direction, and the magnet bends
-// each onto a circle of its own, so that they come round and land in
-// different places along a plate: every place where something lands is a
-// peak, and how much lands there is how strong the peak is. This is that
-// instrument seen from above. Every voiced peak is a beam of ions: it
-// leaves the slit, swings half a circle that is wider the higher the peak,
-// and lands on the plate, where its line grows as tall as the peak is
-// strong. What stands on the plate is the same drawing as the cover a lock
-// screen shows, the peaks from low to high and each as tall as it is
-// strong, and above it is how it comes to be there.
+// Each voiced peak is a beam of ions leaving a slit and bending through a
+// 180° arc (radius grows with frequency) onto a detector plate, where a bar
+// builds up to the peak's strength. Ions leave with a small angular spread,
+// which the half circle refocuses, so beams are crescents.
 //
-// The ions do not all leave the slit quite straight, so a beam opens out
-// on its way, and a half circle is what brings it together again: it is
-// widest at the top of its swing and lands as sharp as it left. That is
-// why the instrument is built this way, and it is why the beams are
-// crescents.
-//
-// The beams are warm for the low peaks, through green, to blue for the
-// high: the same order of colours as in the other visuals.
-//
-// Where the page can hear the stream, more ions are sent into a beam while
-// there is energy around its peak, and a kick sends a burst into all of
-// them. What is sent takes a second or three to come round, so the sound
-// is seen leaving the slit, travelling the beams and striking the plate,
-// the narrow beams first. Where the page cannot hear (iOS gives a page no
-// sound to look at for a live stream) a slow swell of its own does the
-// same, as in "bloom". A new compound shuts the slit: the ions in flight
-// land, the plate goes dark, and the new compound's beams set out.
+// Audio: energy near a peak sends more ions into its beam, kicks send a
+// burst into all of them. Flight takes a second or so, so you see the
+// sound travel. Without audio (e.g. iOS) a slow internal swell stands in.
+// A new compound closes the slit and lets the plate clear first.
 //
 // start(canvas, analyser, { getCompound, onLost }) draws until the returned
-// stop() is called. It throws where WebGPU is not available.
+// stop() is called. Throws if WebGPU is unavailable.
 
 const BANDS = 8; // log-spaced analyser bands, LOW_HZ .. LOW_HZ * SPAN
 const LOW_HZ = 40;

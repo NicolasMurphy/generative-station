@@ -1,29 +1,18 @@
-// "sand": the compound as a figure in sand on a vibrating plate (WebGPU).
+// "sand": Chladni figures (WebGPU).
 //
-// A square plate driven at its centre can only move in certain shapes, its
-// modes, and sand thrown on it is shaken off the parts that move and gathers
-// along the lines that stay still. Here every voiced peak of the current
-// compound's mass spectrum drives one mode: the higher the peak, the finer
-// the mode, and the stronger the peak, the harder it drives. A plate has two
-// shapes for each such mode and may move in any mix of them; each mode turns
-// slowly through its mixes, so the figure never stops changing and never
-// quite repeats.
+// Particles on a vibrating square plate collect along the nodal lines.
+// Each voiced peak drives one plate mode (higher peak = finer mode, stronger
+// peak = more drive). Each mode slowly rotates between its two degenerate
+// shapes, so the figure keeps changing. Grains are coloured by the low, mid
+// or high group of peaks they belong to and respond most to that group's
+// modes. A new compound jolts the plate.
 //
-// Each grain belongs to one mode and has the colour of that mode's peaks,
-// warm for the lowest through green to blue for the highest, as in the
-// other visuals. The grains of the low, the middle and the high peaks each
-// feel their own modes more than the rest, so each colour draws a figure of
-// its own, and the figures run together where the modes agree. A new
-// compound jolts the plate and the sand settles into the new figure.
-//
-// Where the page can hear the stream, a mode is driven harder and turns
-// faster while there is energy around its peak's frequency, loud passages
-// shake the sand, and a kick thumps the whole plate. Where it cannot (iOS
-// gives a page no sound to look at for a live stream) the modes are driven
-// by a slow swell of their own, as in "bloom".
+// Audio: energy near a peak drives its mode harder, loudness shakes the
+// sand, kicks thump the plate. Without audio (e.g. iOS) a slow internal
+// swell stands in.
 //
 // start(canvas, analyser, { getCompound, onLost }) draws until the returned
-// stop() is called. It throws where WebGPU is not available.
+// stop() is called. Throws if WebGPU is unavailable.
 
 const BANDS = 8; // log-spaced analyser bands, LOW_HZ .. LOW_HZ * SPAN
 const LOW_HZ = 40;

@@ -1,36 +1,17 @@
-// "pool": the compound as sunlight on the floor of a pool (WebGPU).
+// "pool": caustics on the floor of a pool (WebGPU).
 //
-// Light that falls through moving water is bent by it: under a crest the
-// rays lean together and under a trough they lean apart, so the floor of a
-// pool is covered in a net of bright lines that never keeps still. Here the
-// water carries a ripple for every voiced peak of the compound's mass
-// spectrum. The higher the peak, the finer its ripple, and the stronger
-// the peak, the more its ripple bends the light. A ripple crosses the pool
-// from several sides at once, as ripples on open water do, from more of
-// them the stronger its peak. The net on the floor is what all the ripples
-// do to the light together: wide where a compound's low peaks are strong,
-// fine where its high ones are, and plain or tangled as the compound has
-// few peaks or many.
+// Each voiced peak is a ripple on the water surface (higher peak = shorter
+// wavelength, stronger peak = more amplitude and more directions). Light is
+// refracted through the surface and accumulated where it lands, so
+// brightness is how much it converges. Colour comes from which peaks'
+// ripples are doing the focusing at each point.
 //
-// Nothing is drawn but the light itself. The sheet of light that enters the
-// water is followed down, piece by piece, to where it lands, and is as
-// bright there as it has been gathered: spread over more floor than it came
-// through of surface it is dimmer, squeezed onto less it is brighter, and
-// where the sheet folds over on itself the folds add up. The light is
-// tinted by the ripples that are gathering it at that place, warm for the
-// low peaks through green to blue for the high: the same order of colours
-// as in the other visuals.
-//
-// Where the page can hear the stream, a ripple rises while there is energy
-// around its peak, so the net is soft in quiet passages and drawn sharp in
-// loud ones, the water moves faster the louder the stream is, and a kick
-// tightens the whole net for a moment. Where it cannot (iOS gives a page no
-// sound to look at for a live stream) a slow swell of its own does the
-// same, as in "bloom". A new compound stills the water, and its ripples
-// rise from the calm.
+// Audio: energy near a peak raises its ripple, loudness speeds up the
+// water, kicks sharpen the whole pattern. Without audio (e.g. iOS) a slow
+// internal swell stands in. A new compound calms the water first.
 //
 // start(canvas, analyser, { getCompound, onLost }) draws until the returned
-// stop() is called. It throws where WebGPU is not available.
+// stop() is called. Throws if WebGPU is unavailable.
 
 const BANDS = 8; // log-spaced analyser bands, LOW_HZ .. LOW_HZ * SPAN
 const LOW_HZ = 40;
