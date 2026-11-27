@@ -314,6 +314,9 @@
     return canvas.toDataURL('image/png');
   }
 
+  // "12 peaks · linear", for the line under the player and the lock screen.
+  const peaksAndMapping = (c) => c.n_peaks + (c.n_peaks === 1 ? ' peak · ' : ' peaks · ') + c.algorithm;
+
   // Lock screen / media controls metadata.
   let announced = null;
   function announce(c) {
@@ -331,7 +334,7 @@
       navigator.mediaSession.metadata = new MediaMetadata(c ? {
         title: c.name,
         artist: 'generative-station',
-        album: c.n_peaks + (c.n_peaks === 1 ? ' peak · ' : ' peaks · ') + c.algorithm,
+        album: peaksAndMapping(c),
         artwork,
       } : { title: 'generative-station', artwork });
     } catch (e) {}
@@ -349,7 +352,7 @@
       streamStarted = typeof d.stream_started === 'number' ? d.stream_started * 1000 : null;
       const c = d.compound;
       const playing = c
-        ? c.name + ' — ' + c.n_peaks + ' peaks · ' + c.algorithm
+        ? c.name + ' — ' + peaksAndMapping(c)
         : 'awaiting compound';
       if (byId('compound').textContent !== playing) {
         byId('compound').textContent = playing;
