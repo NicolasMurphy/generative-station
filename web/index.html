@@ -242,6 +242,7 @@
 <canvas id="viz-crystal" class="viz"></canvas>
 <canvas id="viz-jellyfish" class="viz"></canvas>
 <canvas id="viz-loom" class="viz"></canvas>
+<canvas id="viz-stars" class="viz"></canvas>
 <audio controls preload="none" src="/stream"></audio>
 <p id="compound">awaiting compound</p>
 <p id="caption" hidden></p>
@@ -811,11 +812,12 @@
   document.addEventListener('fullscreenchange', () => { stir(); holdScreen(); });
 </script>
 <script type="module">
-  // Thirteen visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
-  // "magnet", "ink", "ferro", "crystal", "jellyfish" and "loom" need WebGPU; "rings" runs everywhere
-  // and is all a browser without WebGPU gets. The WebGPU ones draw the compound whether
-  // or not there is sound, so they are there when the page opens, and
-  // follow the stream from the first play on. "rings" draws the sound and
+  // Fourteen visuals. "bloom", "sand", "reaction", "trace", "aurora", "pool",
+  // "magnet", "ink", "ferro", "crystal", "jellyfish", "loom" and "stars" need
+  // WebGPU; "rings" runs everywhere and is all a browser without WebGPU gets.
+  // The WebGPU ones draw the compound whether or not there is sound, so they
+  // are there when the page opens, and follow the stream from the first
+  // play on. "rings" draws the sound and
   // nothing else, so it waits for the first play.
   const audio = document.querySelector('audio');
   const visuals = {
@@ -831,12 +833,14 @@
     crystal: { canvas: document.getElementById('viz-crystal'), module: '/viz-crystal.js' },
     jellyfish: { canvas: document.getElementById('viz-jellyfish'), module: '/viz-jellyfish.js' },
     loom: { canvas: document.getElementById('viz-loom'), module: '/viz-loom.js' },
+    stars: { canvas: document.getElementById('viz-stars'), module: '/viz-stars.js' },
     rings: { canvas: document.getElementById('viz'), module: '/viz-rings.js' },
   };
   // The order the switch steps through.
-  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink', 'ferro', 'crystal', 'jellyfish', 'loom'] : []).concat(['rings']);
+  const order = (navigator.gpu ? ['bloom', 'sand', 'reaction', 'trace', 'aurora', 'pool', 'magnet', 'ink', 'ferro', 'crystal', 'jellyfish', 'loom', 'stars'] : []).concat(['rings']);
   let started = false; // the audio graph, with the first play
   let analyser = null;
+  let sides = null; // an analyser for the left of the stream and one for the right
   let current = null;
   let handle = null;
   let switching = false;
@@ -858,6 +862,7 @@
     crystal: 'each peak seeds crystals of its own colour, seen as a microscope shows them in polarised light',
     jellyfish: 'each peak is a kind of jellyfish, larger and slower the lower the peak, more of them the stronger',
     loom: 'what is played, woven into cloth: a thread for each pitch, low to high, raised while it sounds',
+    stars: 'what is played, as stars: each note where it is heard, left to right, and as high up the sky as its pitch',
     rings: 'the sound itself, a bar for each part of it, red for low to blue for high',
   };
   const caption = document.getElementById('caption');
@@ -883,6 +888,7 @@
   const BINS = 2048;
   const RATE = 48000;
   let heard = null;
+  let heardSide = null;
   const ears = {
     frequencyBinCount: BINS,
     context: { sampleRate: RATE },
@@ -896,6 +902,26 @@
       if (!heard) heard = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteFrequencyData(heard);
       for (let i = 0; i < into.length; i++) into[i] = heard[Math.round((i * RATE) / rate)] || 0;
+    },
+    // The left of the stream and the right, each by itself and in decibels,
+    // for a visual that draws where a sound is. It says whether it could.
+    getStereoFrequencyData(left, right) {
+      if (!sides) return false;
+      [left, right].forEach((into, side) => {
+        const node = sides[side];
+        const rate = node.context.sampleRate;
+        if (rate === RATE && into.length === node.frequencyBinCount) {
+          node.getFloatFrequencyData(into);
+          return;
+        }
+        if (!heardSide) heardSide = new Float32Array(node.frequencyBinCount);
+        node.getFloatFrequencyData(heardSide);
+        for (let i = 0; i < into.length; i++) {
+          const from = Math.round((i * RATE) / rate);
+          into[i] = from < heardSide.length ? heardSide[from] : -Infinity;
+        }
+      });
+      return true;
     },
   };
 
@@ -971,8 +997,8 @@
     change(after(offered()));
   }
 
-  // Stepping was enough for two visuals. With thirteen it is a long way
-  // round: the one before this is twelve presses off, each of which starts
+  // Stepping was enough for two visuals. With fourteen it is a long way
+  // round: the one before this is thirteen presses off, each of which starts
   // a picture only to leave it, and nothing says how many there are or what
   // they are called. So the button lists them by name, and a press on a
   // name goes there. The list stays while one after another is tried, with
@@ -1123,6 +1149,33 @@
     analyser.smoothingTimeConstant = 0.7;
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
+    // The two sides of the stream apart as well, for "stars". They are
+    // only listened to: what they pass on is turned all the way down, and
+    // is passed on at all so that every browser keeps them running. A
+    // stream that had one channel would be the same on both sides.
+    try {
+      const both = audioCtx.createGain();
+      both.channelCount = 2;
+      both.channelCountMode = 'explicit';
+      both.channelInterpretation = 'speakers';
+      const apart = audioCtx.createChannelSplitter(2);
+      const unheard = audioCtx.createGain();
+      unheard.gain.value = 0;
+      source.connect(both);
+      both.connect(apart);
+      const each = [0, 1].map((side) => {
+        const node = audioCtx.createAnalyser();
+        node.fftSize = 2 * BINS;
+        node.smoothingTimeConstant = 0.6;
+        apart.connect(node, side);
+        node.connect(unheard);
+        return node;
+      });
+      unheard.connect(audioCtx.destination);
+      sides = each;
+    } catch (e) {
+      console.warn('the two sides of the stream cannot be told apart:', e);
+    }
 
     if (!current) await show(order.includes(first) ? first : 'rings');
     tellList(); // "rings" can be asked for from now on
