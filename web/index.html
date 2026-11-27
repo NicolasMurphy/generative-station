@@ -831,6 +831,7 @@
   // Escape, a click outside, or the idle fade. "v" steps to the next.
   const visualList = document.getElementById('visual-list');
   const visualSwitch = document.getElementById('visual-switch');
+  const visualPart = document.getElementById('visual-part');
   let asked = null; // picked while another visual was still loading
   function tellList() {
     if (visualList.hidden) return;
@@ -936,13 +937,25 @@
   }
   try { if (navigator.gpu && localStorage.getItem('gs-tour')) setTour(true, false); } catch (e) {}
 
+  // A browser can have WebGPU but no GPU it will use (hardware acceleration
+  // off, an unsupported driver). Then only "rings" can draw, so no picker
+  // and no tour, the same as a browser without WebGPU.
+  const gpuChecked = (navigator.gpu ? navigator.gpu.requestAdapter().catch(() => null) : Promise.resolve(null))
+    .then((adapter) => {
+      if (adapter || !navigator.gpu) return;
+      order.splice(0, order.length, 'rings');
+      visualPart.hidden = true;
+      setList(false);
+      setTour(false, false);
+    });
+
   // Start the visual before play, unless the user prefers reduced motion.
   const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (first !== 'rings' && !still) {
     Promise.race([
-      window.stationStatsReady,
+      Promise.all([window.stationStatsReady, gpuChecked]),
       new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]).then(() => { if (!current) show(first); });
+    ]).then(() => { if (!current && order.includes(first)) show(first); });
   }
 
   audio.addEventListener('play', async () => {
@@ -963,11 +976,11 @@
   });
 
   // No WebGPU means only "rings", so no picker.
-  document.getElementById('visual-part').hidden = !navigator.gpu;
+  visualPart.hidden = !navigator.gpu;
   visualSwitch.addEventListener('click', () => setList(visualList.hidden));
   tourSwitch.addEventListener('click', () => setTour(!touring, true));
   window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || !navigator.gpu) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || visualPart.hidden) return;
     if (e.key === 'v') switchVisual();
     if (e.key === 't') setTour(!touring, true);
     if (e.key === 'Escape') setList(false);
