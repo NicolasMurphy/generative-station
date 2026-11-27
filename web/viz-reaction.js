@@ -1,34 +1,18 @@
-// "reaction": the compound as a reaction spreading through a dish (WebGPU).
+// "reaction": Gray-Scott reaction-diffusion, drawn as contour lines (WebGPU).
 //
-// Two substances fill the dish. One, the food, is fed in everywhere. The
-// other lives on it: it makes more of itself wherever it finds food, and it
-// decays. That is all, and it is enough for the second to gather into spots
-// that divide, into stripes that branch and join, or into shapes that never
-// settle. Which of those it does depends on two numbers only, how fast the
-// food is fed in and how fast the feeder decays, and the current compound's
-// mass spectrum sets both: where its peaks lie between low and high sets
-// the feed, and how far apart they are spread sets the decay. So every
-// compound grows a pattern of its own. The dish is drawn as a map of the
-// feeder's heights, in contour lines.
+// The compound sets the two parameters: the spectrum's centroid (low vs
+// high) sets the feed rate, its spread sets the kill rate. So different
+// compounds grow spots, stripes or unstable patterns. Parameters vary
+// slowly across the dish so the pattern never settles, and patches are
+// occasionally cleared and regrow. The low, mid and high peak groups each
+// tint a drifting region of the dish, sized by their strength.
 //
-// The two numbers are not quite the same everywhere in the dish, and where
-// they differ moves, so the pattern is worked over all the time and never
-// finished. Now and then a patch is cleared and grows back in from its
-// edges. A new compound changes the reaction under the pattern that is
-// there, which grows over into the new one.
-//
-// The low, the middle and the high peaks of the compound each have a part
-// of the dish, larger the stronger they are, in the colour they have in the
-// other visuals: warm, green and blue. The parts drift across the dish.
-//
-// Where the page can hear the stream, a part swells and its lines brighten
-// while there is energy around its peaks, the reaction runs faster in loud
-// passages, and a kick lights the whole dish. Where it cannot (iOS gives a
-// page no sound to look at for a live stream) a slow swell of its own does
-// the same, as in "bloom".
+// Audio: energy near a group's peaks brightens its region, loudness speeds
+// up the simulation, kicks flash the dish. Without audio (e.g. iOS) a slow
+// internal swell stands in.
 //
 // start(canvas, analyser, { getCompound, onLost }) draws until the returned
-// stop() is called. It throws where WebGPU is not available.
+// stop() is called. Throws if WebGPU is unavailable.
 
 const BANDS = 8; // log-spaced analyser bands, LOW_HZ .. LOW_HZ * SPAN
 const LOW_HZ = 40;

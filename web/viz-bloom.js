@@ -1,14 +1,12 @@
-// "bloom": a cloud of particles simulated on the GPU (WebGPU).
+// "bloom": GPU particle rings (WebGPU).
 //
-// Every voiced peak of the current compound's mass spectrum is a ring. A
-// peak's frequency sets its ring's radius and colour, its intensity sets how
-// many particles the ring gets, and the ring swells when the stream has
-// energy around that frequency. With no compound the rings are loose and
-// evenly spread; when one arrives the particles are pulled into its shape.
+// Each voiced peak is a ring: frequency sets radius and colour, strength
+// sets particle count, and audio energy near the peak makes it swell. With
+// no compound the particles spread out evenly.
 //
 // start(canvas, analyser, { getCompound, onLost }) draws until the returned
-// stop() is called. It throws where WebGPU is not available, and the page
-// then falls back to the "rings" visual.
+// stop() is called. Throws if WebGPU is unavailable; the page then falls
+// back to "rings".
 
 const BANDS = 8; // log-spaced analyser bands, LOW_HZ .. LOW_HZ * SPAN
 const LOW_HZ = 40;
